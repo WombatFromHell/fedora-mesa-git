@@ -1,0 +1,49 @@
+[Desktop Entry]
+Name=Steam (wrapped custom Mesa)
+Comment=Application for managing and playing games on Steam
+Exec=steam-wrapped.sh %U
+Icon=steam
+Terminal=false
+Type=Application
+Categories=Network;FileTransfer;Game;
+MimeType=x-scheme-handler/steam;x-scheme-handler/steamlink;
+Actions=Store;Community;Library;Servers;Screenshots;News;Settings;BigPicture;Friends;
+PrefersNonDefaultGPU=true
+X-KDE-RunOnDiscreteGpu=true
+
+[Desktop Action Store]
+Name=Store (wrapped custom Mesa)
+Exec=steam-wrapped.sh steam://store
+
+[Desktop Action Community]
+Name=Community (wrapped custom Mesa)
+Exec=steam-wrapped.sh steam://url/SteamIDControlPage
+
+[Desktop Action Library]
+Name=Library (wrapped custom Mesa)
+Exec=steam-wrapped.sh steam://open/games
+
+[Desktop Action Servers]
+Name=Servers (wrapped custom Mesa)
+Exec=steam-wrapped.sh steam://open/servers
+
+[Desktop Action Screenshots]
+Name=Screenshots (wrapped custom Mesa)
+Exec=steam-wrapped.sh steam://open/screenshots
+
+[Desktop Action News]
+Name=News (wrapped custom Mesa)
+Exec=steam-wrapped.sh steam://open/news
+
+[Desktop Action Settings]
+Name=News (wrapped custom Mesa)
+Exec=steam-wrapped.sh steam://open/settings
+
+[Desktop Action BigPicture]
+Name=Big Picture (wrapped custom Mesa)
+Exec=steam-wrapped.sh steam://open/bigpicture
+
+[Desktop Action Friends]
+Name=Friends (wrapped custom Mesa)
+Exec=steam-wrapped.sh steam://open/friends
+StartupWMClass=steam
