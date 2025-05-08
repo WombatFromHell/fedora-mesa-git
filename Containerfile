@@ -6,7 +6,6 @@ RUN dnf install -y \
   dnf install -y git which && \
   dnf builddep -y mesa
 
-COPY ./mesa-git /opt/mesa/mesa-git/
 COPY ./entry.sh /opt/mesa/
 WORKDIR /opt/mesa
 
