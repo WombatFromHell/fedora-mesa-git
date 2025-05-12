@@ -48,6 +48,8 @@ copy_artifacts() {
 	rm -rf "$outdir"
 	mkdir -p "$outdir"/
 	cp -f ./extras/{mesa-run.sh,steam-wrapped.sh,steam-wrapped.desktop} "$outdir"/
+	# correct the lib path in mesa-run.sh
+	sed -i "s|/opt/mesa/output|${outdir}|g" "$ARTIFACTDIR"/share/vulkan/icd.d/radeon_icd.x86_64.json
 	cp -rf "$ARTIFACTDIR"/* "$outdir"/
 	# make links for system-wide usage
 	sudo ln -sf "$outdir"/mesa-run.sh /usr/local/bin/mesa-run.sh
