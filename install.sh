@@ -4,11 +4,22 @@ MODE=0
 REALHOME="$(realpath "$HOME")"
 ARTIFACTDIR="$(realpath "./output")"
 PKGNAME="fedora-mesa-git"
-PKGDIR="$(realpath "./artifact")"
-
-UDD="$(which update-desktop-database)"
-TARGETDIR="$REALHOME/mesa"
 LOCAL_APPS="$REALHOME/.local/share/applications"
+UDD="$(which update-desktop-database)"
+
+PKGDIR_DEFAULT="$(realpath "./artifact")"
+TARGETDIR_DEFAULT="$REALHOME/mesa"
+
+cache_creds() {
+	sudo -v
+	local status="$?"
+	if [ "$status" -eq 130 ] || [ "$status" -eq 1 ]; then
+		echo "Error: Cannot obtain sudo credentials!"
+		exit 1
+	else
+		return 0
+	fi
+}
 
 show_help() {
 	cat <<EOF
@@ -18,8 +29,9 @@ Install or package custom Mesa build.
 
 Options:
   -h, --help      Show this help message and exit
-  -i, --install   Install Mesa to user's home directory (default)
-  -p, --package   Create a compressed package of Mesa artifacts
+  -i, --install [PATH]   Install Mesa to a specified directory (default is "$TARGETDIR_DEFAULT")
+  -p, --package [PATH]   Create a compressed package of Mesa artifacts into a specified output path ...
+                         ... (default is "$PKGDIR_DEFAULT")
 EOF
 }
 
@@ -45,32 +57,40 @@ package_artifacts() {
 
 copy_artifacts() {
 	local outdir=$1
+	cache_creds
+
 	rm -rf "$outdir"
-	mkdir -p "$outdir"/
+	mkdir -p "$outdir/"
+
 	cp -f ./extras/{mesa-run.sh,steam-wrapped.sh,steam-wrapped.desktop} "$outdir"/
-	# correct the lib path in mesa-run.sh
-	sed -i "s|/opt/mesa/output|${outdir}|g" "$ARTIFACTDIR"/share/vulkan/icd.d/radeon_icd.x86_64.json
 	cp -rf "$ARTIFACTDIR"/* "$outdir"/
-	# make links for system-wide usage
+	sed -i "s|/opt/mesa/output|$outdir|g" "$outdir"/share/vulkan/icd.d/radeon_icd.x86_64.json
+
 	sudo ln -sf "$outdir"/mesa-run.sh /usr/local/bin/mesa-run.sh
 	sudo ln -sf "$outdir"/steam-wrapped.sh /usr/local/bin/steam-wrapped.sh
-	# copy .desktop file for wrapped Steam and run update-desktop-database
 	cp -f "$outdir"/steam-wrapped.desktop "$LOCAL_APPS"/steam-wrapped.desktop
 	"$UDD" "$LOCAL_APPS" && echo "Ran 'update-desktop-database' successfully..."
 }
 
 install_mesa() {
 	if [ "$MODE" -eq 1 ]; then
-		[ -d "$TARGETDIR" ] &&
-			! confirm "Warning: '$TARGETDIR' already exists, continuing will overwrite it!" && exit 1
+		if [ -d "$TARGETDIR" ] &&
+			! confirm "Warning: '$TARGETDIR' already exists, continuing will overwrite it!"; then
+			exit 1
+		fi
+
 		copy_artifacts "$TARGETDIR"
 	elif [ "$MODE" -eq 2 ]; then
-		[ -d "$PKGDIR" ] &&
-			! confirm "Warning: '$PKGDIR' already exists, continuing will overwrite it!" && exit 1
+		if [ -d "$PKGDIR" ] &&
+			! confirm "Warning: '$PKGDIR' already exists, continuing will overwrite it!"; then
+			exit 1
+		fi
+
 		copy_artifacts "$PKGDIR"
+		package_artifacts
 	fi
 
-	echo "Success! Use the 'Steam (wrapped)' shortcut or 'mesa-run.sh' command"
+	echo "Success! Use the 'Steam (wrapped)' shortcut or 'mesa-run.sh' command."
 }
 
 if [ -z "$ARTIFACTDIR" ] || ! [ -d "$ARTIFACTDIR" ]; then
@@ -88,10 +108,30 @@ else
 		exit 0
 		;;
 	-i | --install)
+		MODE=1
+
+		if [[ -n $2 && $2 != -* ]]; then
+			echo "Path specified: $2"
+			TARGETDIR="$2"
+			shift 2
+		else
+			shift
+			TARGETDIR="${TARGETDIR:-$TARGETDIR_DEFAULT}"
+		fi
+
 		install_mesa
 		;;
 	-p | --package)
 		MODE=2
+
+		if [[ -n $2 && $2 != -* ]]; then
+			PKGDIR="$2"
+			shift 2
+		else
+			shift
+			PKGDIR="${PKGDIR:-$PKGDIR_DEFAULT}"
+		fi
+
 		install_mesa
 		;;
 	*)

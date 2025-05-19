@@ -2,4 +2,6 @@
 
 WRAPPER_PATH="$(realpath "$HOME")/mesa/mesa-run.sh"
 STEAM_PATH="$(which steam)"
-exec "$WRAPPER_PATH" "$STEAM_PATH" "$@"
+ARGS=("DXIL_SPIRV_CONFIG=wmma_fp8_hack")
+
+exec env "${ARGS[@]}" "$WRAPPER_PATH" "$STEAM_PATH" "$@"
