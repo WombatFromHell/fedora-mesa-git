@@ -8,13 +8,13 @@ GIT="$(which git)"
 REPODIR="mesa-git"
 # REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-# REV="5c142e46f3f6e752ed745fd48912ebb8fad67145" # pin to 25.1.0
+# REV="7485541cc3a8a4f60ef66e02265048aadf14b3ed" # pin to 25.1.1 (busted)
 REV="97f71420dfdf86de084b64cbcbd65855063fcc94" # pin to current upstream
 
 # prevent script from being run outside the project directory
 script_dir="$(dirname "$(readlink -f "$0")")"
 if [[ "$(pwd -P)" != "$script_dir" ]]; then
-	echo "Error: script must be run from the dotfile root directory!"
+	echo "Error: script must be run from the project directory!"
 	exit 1
 fi
 
@@ -27,6 +27,7 @@ if [ -n "$GIT" ] && ! [ -d ./"$REPODIR" ]; then
 	# apply radv-float8-hack3 patch from DadSchoorse:
 	# https://gitlab.freedesktop.org/DadSchoorse/mesa/-/commit/4823285a2e5b2df849b55861dd4f051dd2598bf1
 	if ! "$GIT" am --no-gpg-sign ../radv-float8-hack3.patch; then
+		# if ! "$GIT" apply <../radv-float8-hack3.patch; then
 		echo "Something went wrong when applying 'radv-float8-hack3.patch'!"
 		exit 1
 	else
