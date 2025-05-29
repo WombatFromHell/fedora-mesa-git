@@ -1,6 +1,8 @@
 #!/bin/bash
 
 MESA="$HOME/mesa"
+ARGS=("DXIL_SPIRV_CONFIG=wmma_fp8_hack")
+
 # D3D_MODULE_PATH="$MESA"/lib64/d3d/d3dadapter9.so.1 \ # Gallium related (deprecated)
 LD_LIBRARY_PATH="$MESA"/lib64:"$LD_LIBRARY_PATH" \
 	VK_ICD_FILENAMES="$MESA"/share/vulkan/icd.d/radeon_icd.x86_64.json \
@@ -9,4 +11,4 @@ LD_LIBRARY_PATH="$MESA"/lib64:"$LD_LIBRARY_PATH" \
 	LIBGL_DRIVERS_PATH="$MESA"/lib64/dri \
 	LIBVA_DRIVERS_PATH="$MESA"/lib64/dri \
 	VDPAU_DRIVER_PATH="$MESA"/lib64/dri \
-	exec "$@"
+	exec env "${ARGS[@]}" "$@"
