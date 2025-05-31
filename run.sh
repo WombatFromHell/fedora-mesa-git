@@ -2,17 +2,20 @@
 
 CNAME="fedora-mesa-git"
 LABEL="${CNAME}:latest"
-BUILDDIR="./output"
+BUILDDIR="output"
 
 GIT="$(which git)"
 REPODIR="mesa-git"
+PATCHFILE="radv-float8-hack3.patch"
 #
+# UNCOMMENT THESE TWO VARS TO USE THE FORK
 #REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
 #REV="fa81930282c218e87232643937418bb2a1ca15bd" # pin to the last-known-good
 #
+# UNCOMMENT THESE TWO VARS TO USE MESA UPSTREAM
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-# REV="7485541cc3a8a4f60ef66e02265048aadf14b3ed" # pin to 25.1.1
-REV="018f4f1c27a536b72988bcc401419bd3e4d74979" # pin to current upstream
+REV="05c2c748db410a68f97d81d431b35eab38774c90" # pin to current upstream (May 30 '25)
+# REV="85d2c8f8aeac9e8a9b945dd46000513add0af4bd" # pin to 25.1.1
 
 # prevent script from being run outside the project directory
 script_dir="$(dirname "$(readlink -f "$0")")"
@@ -23,34 +26,26 @@ fi
 
 if [ -n "$GIT" ] && ! [ -d ./"$REPODIR" ]; then
 	"$GIT" clone "${REPO[@]}" "$REPODIR"
-	cd "$REPODIR" || exit 1
-	# reset repo to pinned revision state
-	if "$GIT" reset --hard "$REV" && "$GIT" clean -fd; then
-		cd "$script_dir/$REPODIR" || exit 1
-	else
-		echo "Something went wrong when resetting WIP repo!"
-		exit 1
-	fi
-
-	# USE THE BELOW IF PULLING FROM UPSTREAM MESA REPO
-	# apply radv-float8-hack3 patch from DadSchoorse's branch:
-	# https://gitlab.freedesktop.org/DadSchoorse/mesa/-/commits/radv-float8-hack3
-	if ! "$GIT" am --no-gpg-sign ../radv-float8-hack3.patch; then
-		# if ! "$GIT" apply <../radv-float8-hack3.patch; then
-		echo "Something went wrong when applying 'radv-float8-hack3.patch'!"
-		exit 1
-	else
-		cd "$script_dir/$REPODIR" || exit 1
-	fi
 fi
 
-mkdir -p "$BUILDDIR"
+cd "$script_dir/$REPODIR" || exit 1
+# always reset repo to pinned revision
+"$GIT" reset --hard "$REV" && "$GIT" clean -fd
+
+# COMMENT THIS OUT IF PULLING FROM FORKED MESA REPO
+if ! "$GIT" am --no-gpg-sign ../"$PATCHFILE"; then
+	echo "Something went wrong when applying the patch file!"
+	exit 1
+fi
+
+cd "$script_dir" || exit 1
+mkdir -p "$script_dir/$BUILDDIR"
 
 if podman build -t "$CNAME" .; then
 	podman run -it --replace --rm \
 		--userns=keep-id \
 		-v ./"$REPODIR":/opt/mesa/mesa-git:z \
-		-v "$BUILDDIR":/opt/mesa/output:z \
+		-v ./"$BUILDDIR":/opt/mesa/output:z \
 		--name "$CNAME" \
 		"$LABEL"
 fi
