@@ -14,8 +14,8 @@ PATCHFILE="radv-float8-hack3.patch"
 #
 # UNCOMMENT THESE TWO VARS TO USE MESA UPSTREAM
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-REV="05c2c748db410a68f97d81d431b35eab38774c90" # pin to current upstream (May 30 '25)
-# REV="85d2c8f8aeac9e8a9b945dd46000513add0af4bd" # pin to 25.1.1
+# REV="05c2c748db410a68f97d81d431b35eab38774c90" # pin to current upstream (May 30 '25)
+REV="b937d8be9df0c4116b8131ede634fc0aef17026d" # pin to 25.1.3
 
 # prevent script from being run outside the project directory
 script_dir="$(dirname "$(readlink -f "$0")")"
