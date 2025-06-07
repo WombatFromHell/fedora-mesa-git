@@ -4,7 +4,7 @@ cd "/opt/mesa" || exit 1
 OUTDIR="$(realpath ./output)"
 
 MESON="$(which meson)"
-MESON_OPTS=(setup build64 --reconfigure --libdir lib64 --prefix "$OUTDIR" -Dgallium-drivers=radeonsi -Dvideo-codecs=all -Dvulkan-drivers=amd -Dbuildtype=release -Dc_args=-O3 -Dcpp_args=-O3)
+MESON_OPTS=(setup build64 --reconfigure --libdir lib64 --prefix "$OUTDIR" -Dgallium-drivers=radeonsi -Dvideo-codecs=all -Dvulkan-drivers=amd -Dbuildtype=release "-Dc_args=-O3 -march=native" "-Dcpp_args=-O3 -march=native")
 
 NINJA="$(which ninja)"
 NINJA_OPTS=(-C build64 install)
