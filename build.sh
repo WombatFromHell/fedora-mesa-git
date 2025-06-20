@@ -6,16 +6,25 @@ BUILDDIR="output"
 
 GIT="$(which git)"
 REPODIR="mesa-git"
-PATCHFILE="radv-float8-hack3.patch"
+PATCHES=(
+	# radv-float8-hack3.patch
+	# radv-fsr4-exts.patch
+	matrix2-nv.patch
+	35269.patch
+)
+
 #
 # UNCOMMENT THESE TWO VARS TO USE THE FORK
-#REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
-#REV="fa81930282c218e87232643937418bb2a1ca15bd" # pin to the last-known-good
+# REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
+# REV="fa81930282c218e87232643937418bb2a1ca15bd"
+# BELOW IS A NEWER REBASE
+REPO=(--branch radv-fsr4-exts https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
+REV="47c705fe75ceacb987d0ab0a410ecd186ae62bc7"
 #
 # UNCOMMENT THESE TWO VARS TO USE MESA UPSTREAM
-REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-# REV="05c2c748db410a68f97d81d431b35eab38774c90" # pin to current upstream (May 30 '25)
-REV="b937d8be9df0c4116b8131ede634fc0aef17026d" # pin to 25.1.3
+# REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
+# REV="b0f8c22682b1aa46206f672cdfff1dd9f26e168c" # pin to current upstream
+# REV="b937d8be9df0c4116b8131ede634fc0aef17026d" # pin to 25.1.3
 
 # prevent script from being run outside the project directory
 script_dir="$(dirname "$(readlink -f "$0")")"
@@ -33,10 +42,12 @@ cd "$script_dir/$REPODIR" || exit 1
 "$GIT" reset --hard "$REV" && "$GIT" clean -fd
 
 # COMMENT THIS OUT IF PULLING FROM FORKED MESA REPO
-if ! "$GIT" am --no-gpg-sign ../"$PATCHFILE"; then
-	echo "Something went wrong when applying the patch file!"
-	exit 1
-fi
+for patch in "${PATCHES[@]}"; do
+	if ! "$GIT" am --no-gpg-sign ../patches/"$patch"; then
+		echo "Something went wrong when applying the patch file!"
+		exit 1
+	fi
+done
 
 cd "$script_dir" || exit 1
 mkdir -p "$script_dir/$BUILDDIR"
