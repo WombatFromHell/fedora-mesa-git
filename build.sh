@@ -9,22 +9,24 @@ REPODIR="mesa-git"
 PATCHES=(
 	# radv-float8-hack3.patch
 	# radv-fsr4-exts.patch
-	matrix2-nv.patch
+	# matrix2-nv.patch
 	35269.patch
+	# 35270.patch
 )
 
 #
 # UNCOMMENT THESE TWO VARS TO USE THE FORK
-# REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
-# REV="fa81930282c218e87232643937418bb2a1ca15bd"
-# BELOW IS A NEWER REBASE
-REPO=(--branch radv-fsr4-exts https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
-REV="47c705fe75ceacb987d0ab0a410ecd186ae62bc7"
+REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
+REV="0db494288e18ff26c94eea8d1261df24f065a1d3"
+#
+# BELOW IS AN EXPERIMENTAL REBASE
+# REPO=(--branch radv-fsr4-exts https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
+# REV="47c705fe75ceacb987d0ab0a410ecd186ae62bc7"
 #
 # UNCOMMENT THESE TWO VARS TO USE MESA UPSTREAM
 # REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
+# REV="bcb723ed9eb536a931b9dcc66ca19124038f880b" # pin to 25.1.4
 # REV="b0f8c22682b1aa46206f672cdfff1dd9f26e168c" # pin to current upstream
-# REV="b937d8be9df0c4116b8131ede634fc0aef17026d" # pin to 25.1.3
 
 # prevent script from being run outside the project directory
 script_dir="$(dirname "$(readlink -f "$0")")"
