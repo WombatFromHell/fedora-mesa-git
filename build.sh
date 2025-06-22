@@ -11,7 +11,6 @@ PATCHES=(
 	# radv-fsr4-exts.patch
 	# matrix2-nv.patch
 	35269.patch
-	# 35270.patch
 )
 
 #
