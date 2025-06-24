@@ -7,26 +7,24 @@ BUILDDIR="output"
 GIT="$(which git)"
 REPODIR="mesa-git"
 PATCHES=(
-	# radv-float8-hack3.patch
-	# radv-fsr4-exts.patch
-	# matrix2-nv.patch
 	35269.patch
 	34918.patch
 )
 
+if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
+	echo "$0 [--fp8hack]"
+	exit 1
+fi
+
 #
 # UNCOMMENT THESE TWO VARS TO USE THE FORK
-REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
-REV="0db494288e18ff26c94eea8d1261df24f065a1d3"
-#
-# BELOW IS AN EXPERIMENTAL REBASE
-# REPO=(--branch radv-fsr4-exts https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
-# REV="47c705fe75ceacb987d0ab0a410ecd186ae62bc7"
+HACK_REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
+HACK_REV="0db494288e18ff26c94eea8d1261df24f065a1d3"
 #
 # UNCOMMENT THESE TWO VARS TO USE MESA UPSTREAM
-# REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
+REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
+REV="cf4a1374597dd0532e8d24a070e8885b78559901" # pin to last-known-good
 # REV="bcb723ed9eb536a931b9dcc66ca19124038f880b" # pin to 25.1.4
-# REV="b0f8c22682b1aa46206f672cdfff1dd9f26e168c" # pin to current upstream
 
 # prevent script from being run outside the project directory
 script_dir="$(dirname "$(readlink -f "$0")")"
@@ -35,17 +33,28 @@ if [[ "$(pwd -P)" != "$script_dir" ]]; then
 	exit 1
 fi
 
-if [ -n "$GIT" ] && ! [ -d ./"$REPODIR" ]; then
+if [ -n "$GIT" ] && ! [ -d ./"$REPODIR" ] && [ "$1" != "--fp8hack" ]; then
 	"$GIT" clone "${REPO[@]}" "$REPODIR"
+elif [ "$1" == "--fp8hack" ]; then
+	"$GIT" clone "${HACK_REPO[@]}" "$REPODIR"
 fi
 
 cd "$script_dir/$REPODIR" || exit 1
-# always reset repo to pinned revision
-"$GIT" reset --hard "$REV" && "$GIT" clean -fd
 
-# COMMENT THIS OUT IF PULLING FROM FORKED MESA REPO
+if [ "$1" != "--fp8hack" ]; then
+	# always reset repo to pinned revision
+	"$GIT" fetch &&
+		"$GIT" reset --hard "$REV" &&
+		"$GIT" clean -fd
+else
+	"$GIT" fetch &&
+		"$GIT" reset --hard "$HACK_REV" &&
+		"$GIT" clean -fd
+fi
+
 for patch in "${PATCHES[@]}"; do
-	if ! "$GIT" am --no-gpg-sign ../patches/"$patch"; then
+	echo "Attempting to apply patchfile: $patch"
+	if ! "$GIT" am --no-gpg-sign --whitespace=fix ../patches/"$patch"; then
 		echo "Something went wrong when applying the patch file!"
 		exit 1
 	fi
