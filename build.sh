@@ -17,11 +17,9 @@ if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
 fi
 
 #
-# UNCOMMENT THESE TWO VARS TO USE THE FORK
 HACK_REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
 HACK_REV="0db494288e18ff26c94eea8d1261df24f065a1d3"
 #
-# UNCOMMENT THESE TWO VARS TO USE MESA UPSTREAM
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
 REV="cf4a1374597dd0532e8d24a070e8885b78559901" # pin to last-known-good
 # REV="bcb723ed9eb536a931b9dcc66ca19124038f880b" # pin to 25.1.4
@@ -33,20 +31,24 @@ if [[ "$(pwd -P)" != "$script_dir" ]]; then
 	exit 1
 fi
 
-if [ -n "$GIT" ] && ! [ -d ./"$REPODIR" ] && [ "$1" != "--fp8hack" ]; then
-	"$GIT" clone "${REPO[@]}" "$REPODIR"
-elif [ "$1" == "--fp8hack" ]; then
-	"$GIT" clone "${HACK_REPO[@]}" "$REPODIR"
+if [ -n "$GIT" ] && ! [ -d ./"$REPODIR" ]; then
+	if [ "$#" -eq 0 ]; then
+		echo "Using mesa upstream..."
+		"$GIT" clone "${REPO[@]}" "$REPODIR"
+	elif [ "$1" == "--fp8hack" ]; then
+		echo "Using 'radv-float8-hack3' fork..."
+		"$GIT" clone "${HACK_REPO[@]}" "$REPODIR"
+	fi
 fi
 
 cd "$script_dir/$REPODIR" || exit 1
 
-if [ "$1" != "--fp8hack" ]; then
+if [ -d ./"$REPODIR" ] && [ "$1" != "--fp8hack" ]; then
 	# always reset repo to pinned revision
 	"$GIT" fetch &&
 		"$GIT" reset --hard "$REV" &&
 		"$GIT" clean -fd
-else
+elif [ -d ./"$REPODIR" ]; then
 	"$GIT" fetch &&
 		"$GIT" reset --hard "$HACK_REV" &&
 		"$GIT" clean -fd
