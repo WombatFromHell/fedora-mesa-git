@@ -69,7 +69,7 @@ copy_artifacts() {
 	sudo ln -sf "$outdir"/mesa-run.sh /usr/local/bin/mesa-run.sh
 	sudo ln -sf "$outdir"/steam-wrapped.sh /usr/local/bin/steam-wrapped.sh
 	# cp -f "$outdir"/steam-wrapped.desktop "$LOCAL_APPS"/steam-wrapped.desktop
-	"$UDD" "$LOCAL_APPS" && echo "Ran 'update-desktop-database' successfully..."
+	# "$UDD" "$LOCAL_APPS" && echo "Ran 'update-desktop-database' successfully..."
 }
 
 install_mesa() {
@@ -90,7 +90,7 @@ install_mesa() {
 		package_artifacts
 	fi
 
-	echo "Success! Use the 'Steam (wrapped)' shortcut or 'mesa-run.sh' command."
+	echo "Success! Simply use the 'mesa-run.sh' or 'steam-wrapped.sh' commands."
 }
 
 if [ -z "$ARTIFACTDIR" ] || ! [ -d "$ARTIFACTDIR" ]; then
