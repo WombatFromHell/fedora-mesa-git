@@ -68,7 +68,7 @@ copy_artifacts() {
 
 	sudo ln -sf "$outdir"/mesa-run.sh /usr/local/bin/mesa-run.sh
 	sudo ln -sf "$outdir"/steam-wrapped.sh /usr/local/bin/steam-wrapped.sh
-	cp -f "$outdir"/steam-wrapped.desktop "$LOCAL_APPS"/steam-wrapped.desktop
+	# cp -f "$outdir"/steam-wrapped.desktop "$LOCAL_APPS"/steam-wrapped.desktop
 	"$UDD" "$LOCAL_APPS" && echo "Ran 'update-desktop-database' successfully..."
 }
 
