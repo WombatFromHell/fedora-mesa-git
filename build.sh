@@ -6,8 +6,12 @@ BUILDDIR="output"
 
 REPODIR="mesa-git"
 PATCHES=(
-	35269.patch
 	34918.patch
+	35069.patch
+	35269.patch
+	35674.patch
+	35676.patch
+	35718.patch
 )
 
 #
@@ -94,8 +98,6 @@ build() {
 
 	if podman build -t "$CNAME" .; then
 		podman run -it --replace --rm \
-			--userns=keep-id \
-			-v ./"$REPODIR":/opt/mesa/mesa-git:z \
 			-v ./"$BUILDDIR":/opt/mesa/output:z \
 			--name "$CNAME" \
 			"$LABEL"

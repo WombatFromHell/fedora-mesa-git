@@ -7,6 +7,7 @@ RUN dnf install -y \
   dnf builddep -y mesa
 
 COPY ./entry.sh /opt/mesa/
+COPY ./mesa-git/ /opt/mesa/mesa-git/
 WORKDIR /opt/mesa
 
 ENTRYPOINT [ "/opt/mesa/entry.sh" ]

@@ -1,0 +1,40 @@
+From ac8dc1951292e7d6512d9c26dfd67c7bd3debd4d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <mdaenzer@redhat.com>
+Date: Mon, 23 Jun 2025 19:07:53 +0200
+Subject: [PATCH] radeonsi: Don't assert src_va != 0 with CP_DMA_CLEAR
+
+CP_DMA_CLEAR just clears the destination, which doesn't require a valid
+source address.
+
+Fixes spurious assertion failures running xserver build tests (with
+https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/34958 also
+applied).
+
+Fixes: a1b8c6c40425 ("radeosi: assert addresses are not NULL in a couple of places")
+Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/35718>
+---
+ src/gallium/drivers/radeonsi/si_cp_dma.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/src/gallium/drivers/radeonsi/si_cp_dma.c b/src/gallium/drivers/radeonsi/si_cp_dma.c
+index 83332747e2a37..a4c32cf5f9ffb 100644
+--- a/src/gallium/drivers/radeonsi/si_cp_dma.c
++++ b/src/gallium/drivers/radeonsi/si_cp_dma.c
+@@ -46,7 +46,13 @@ static void si_emit_cp_dma(struct si_context *sctx, struct radeon_cmdbuf *cs, ui
+ 
+    assert(sctx->screen->info.has_cp_dma);
+    assert(size <= cp_dma_max_byte_count(sctx));
+-   assert(size == 0 || (src_va && dst_va));
++
++   if (size) {
++      assert(dst_va);
++
++      if (!(flags & CP_DMA_CLEAR))
++         assert(src_va);
++   }
+ 
+    if (sctx->gfx_level >= GFX9)
+       command |= S_415_BYTE_COUNT_GFX9(size);
+-- 
+GitLab
+
