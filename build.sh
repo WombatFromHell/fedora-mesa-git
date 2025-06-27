@@ -7,11 +7,8 @@ BUILDDIR="output"
 REPODIR="mesa-git"
 PATCHES=(
 	34918.patch
-	35069.patch
-	35269.patch
-	35674.patch
-	35676.patch
-	35718.patch
+	35445.patch
+	35746.patch
 )
 
 #
@@ -21,7 +18,7 @@ HACK_REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse
 HACK_REV="0db494288e18ff26c94eea8d1261df24f065a1d3"
 #
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-REV="cf4a1374597dd0532e8d24a070e8885b78559901" # pin to last-known-good
+REV="e1acffbfc00aa11710ae55ae7426461cde1fbbb9" # pin to last-known-good
 # REV="bcb723ed9eb536a931b9dcc66ca19124038f880b" # pin to 25.1.4
 
 FP8HACK=0

@@ -13,9 +13,9 @@ MESON_OPTS=(
 	setup build64/ --reconfigure --libdir lib64 -Dprefix="$OUTDIR"
 	-Dgallium-drivers=radeonsi -Dvideo-codecs=all -Dvulkan-drivers=amd -Dbuildtype=release
 )
-[ "${#COMMON_FLAGS[@]}" -gt 0 ] &&
+[[ ${#COMMON_FLAGS[@]} -gt 0 ]] &&
 	MESON_OPTS+=("-Dc_args=${COMMON_FLAGS[*]}" "-Dcpp_args=${COMMON_FLAGS[*]}")
-[ "${#COMMON_LARGS[@]}" -gt 0 ] &&
+[[ ${#COMMON_LARGS[@]} -gt 0 ]] &&
 	MESON_OPTS+=("-Dc_link_args=${COMMON_LARGS[*]}" "-Dcpp_link_args=${COMMON_LARGS[*]}")
 
 NINJA="$(which ninja)"
