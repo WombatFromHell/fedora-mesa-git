@@ -6,7 +6,8 @@ MESA="$HOME/mesa"
 ARGS=(
 	# "DXIL_SPIRV_CONFIG=wmma_rdna3_workaround" # uncomment for RDNA3
 	"PROTON_FSR4_UPGRADE=1"
-	"WINEDLLOVERRIDES=d3d12=n,b,dxgi=n,b,winmm=n,b,nvapi64=n,b"
+	"WINEDLLOVERRIDES=dxgi=n,b,winmm=n,b"
+	"radv_cooperative_matrix2_nv=false"
 )
 ENV_VARS=(
 	"LD_LIBRARY_PATH=$MESA/lib64:$LD_LIBRARY_PATH"

@@ -6,20 +6,27 @@ BUILDDIR="output"
 
 REPODIR="mesa-git"
 PATCHES=(
-	34918.patch
-	35445.patch
-	35746.patch
+	34918
+	35269
+	35445
+	# 35734 # needs rebasing
+	35746
+	35784
 )
 
 #
 # REPO STUFF
 #
-HACK_REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
-HACK_REV="0db494288e18ff26c94eea8d1261df24f065a1d3"
+# HACK_REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
+# HACK_REV="0db494288e18ff26c94eea8d1261df24f065a1d3"
+#
+BRANCH_NAME="radv-bvh8-dsbvh"
+HACK_REPO=(--branch "$BRANCH_NAME" https://gitlab.freedesktop.org/pixelcluster/mesa.git)
+HACK_REV="916c15386bdd1e69dc4606bb545be15195e7a6d2"
 #
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-REV="e1acffbfc00aa11710ae55ae7426461cde1fbbb9" # pin to last-known-good
-# REV="bcb723ed9eb536a931b9dcc66ca19124038f880b" # pin to 25.1.4
+# REV="c7cb7b7dc3a79c78aa8e164075385184606a972e" # pin to latest pipeline-checked commit
+REV="e1acffbfc00aa11710ae55ae7426461cde1fbbb9" # pin to last known-good (6/26/25)
 
 FP8HACK=0
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
@@ -44,7 +51,7 @@ fi
 
 git_clone() {
 	if [ "$FP8HACK" -eq 1 ]; then
-		echo "Using 'radv-float8-hack3' fork..."
+		echo "Using '$BRANCH_NAME' fork..."
 		local WREPO=("${HACK_REPO[@]}")
 	else
 		echo "Using mesa upstream..."
@@ -72,18 +79,22 @@ git_reset() {
 	"$GIT" fetch
 	"$GIT" am --abort
 	"$GIT" reset --hard "$WREV"
-	"$GIT" clean -fd
+	"$GIT" clean -fdx
 }
 
 git_patch() {
+	local patch_cmd=("$GIT" am --no-gpg-sign --whitespace=fix)
 	for patch in "${PATCHES[@]}"; do
-		if "$GIT" am --no-gpg-sign ../patches/"$patch"; then
-			echo "Applied: '$patch'..."
-		elif grep -q 'rebase-apply' <<<"$(git am "$patch" 2>&1)"; then
-			echo "Skipping '$patch' due to already being applied..."
-			git am --abort 2>/dev/null
+		local patchn="$patch.patch"
+		local path="../patches/$patchn"
+
+		if "${patch_cmd[@]}" "$path"; then
+			echo "Applied: '$patchn'..."
+		elif grep -q 'rebase-apply' <<<"$("${patch_cmd[@]}" "$path" 2>&1)"; then
+			echo "Skipping '${patchn}'..."
+			"$GIT" am --abort 2>/dev/null
 		else
-			echo "Uncaught Error! Something went wrong applying patch: '$patch'..."
+			echo "Uncaught Error! Something went wrong applying patch: '${patchn}'..."
 			exit 1
 		fi
 	done
