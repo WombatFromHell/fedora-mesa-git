@@ -12,6 +12,7 @@ PATCHES=(
 	# 35734 # needs rebasing
 	35746
 	35784
+	35876
 )
 
 #
@@ -48,6 +49,18 @@ if [ -z "$GIT" ]; then
 	echo "Error! Cannot locate 'git' in path!"
 	exit 1
 fi
+
+update_patches() {
+	local base_url="https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests"
+	for patch in "${PATCHES[@]}"; do
+		local file="${patch}.patch"
+		local path
+		path="$(realpath ./patches)"
+
+		echo "Re-fetching '$file'..."
+		curl -L "${base_url}/${file}" -o "${path}/${file}" 2>/dev/null
+	done
+}
 
 git_clone() {
 	if [ "$FP8HACK" -eq 1 ]; then
@@ -115,6 +128,7 @@ build() {
 main() {
 	git_clone
 	git_reset
+	update_patches
 	git_patch
 	build
 }

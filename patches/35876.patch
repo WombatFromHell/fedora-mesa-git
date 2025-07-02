@@ -1,0 +1,72 @@
+From e3092c734a8a544040848db3492f7527f5818dce Mon Sep 17 00:00:00 2001
+From: Georg Lehmann <dadschoorse@gmail.com>
+Date: Wed, 2 Jul 2025 08:13:03 +0200
+Subject: [PATCH] nir/opt_algebraic: optimize 16bit vec2 comparison followed by
+ b2i16 using usub_sat
+
+Helps vectorized emulated fp16 -> fp8 conversions
+
+No Foz-DB changes.
+
+Reviewed-by: Rhys Perry <pendingchaos02@gmail.com>
+---
+ src/compiler/nir/nir_opt_algebraic.py | 11 +++++++++++
+ src/compiler/nir/nir_search_helpers.h | 20 ++++++++++++++++++++
+ 2 files changed, 31 insertions(+)
+
+diff --git a/src/compiler/nir/nir_opt_algebraic.py b/src/compiler/nir/nir_opt_algebraic.py
+index 4d6884861fdfa..4429ab37dbbd9 100644
+--- a/src/compiler/nir/nir_opt_algebraic.py
++++ b/src/compiler/nir/nir_opt_algebraic.py
+@@ -2700,6 +2700,17 @@ optimizations.extend([
+ 
+    (('imul_high@16', a, b), ('i2i16', ('ishr', ('imul24_relaxed', ('i2i32', a), ('i2i32', b)), 16)), 'options->lower_mul_high16'),
+    (('umul_high@16', a, b), ('u2u16', ('ushr', ('umul24_relaxed', ('u2u32', a), ('u2u32', b)), 16)), 'options->lower_mul_high16'),
++
++   # Optimize vec2 unsigned comparison predicates to usub_sat with clamp.
++   (('b2i16', ('vec2', ('ult', 'a@16', b), ('ult', 'c@16', d))),
++    ('umin', 1, ('usub_sat', ('vec2', b, d), ('vec2', a, c))),
++    'options->vectorize_vec2_16bit && !options->lower_usub_sat'),
++   (('b2i16', ('vec2', ('uge', 'a@16', '#b(is_not_zero)'), ('uge', 'c@16', '#d(is_not_zero)'))),
++    ('umin', 1, ('usub_sat', ('vec2', a, c), ('iadd', ('vec2', b, d), -1))),
++    'options->vectorize_vec2_16bit && !options->lower_usub_sat'),
++   (('b2i16', ('vec2', ('uge', '#a(is_not_all_bits)', 'b@16'), ('uge', '#c(is_not_all_bits)', 'd@16'))),
++    ('umin', 1, ('usub_sat', ('iadd', ('vec2', a, c), 1), ('vec2', b, d))),
++    'options->vectorize_vec2_16bit && !options->lower_usub_sat'),
+ ])
+ 
+ for bit_size in [8, 16, 32, 64]:
+diff --git a/src/compiler/nir/nir_search_helpers.h b/src/compiler/nir/nir_search_helpers.h
+index 9ad466b6c4bc1..9934031a8664a 100644
+--- a/src/compiler/nir/nir_search_helpers.h
++++ b/src/compiler/nir/nir_search_helpers.h
+@@ -862,6 +862,26 @@ is_5lsb_not_zero(UNUSED struct hash_table *ht, const nir_alu_instr *instr,
+    return true;
+ }
+ 
++/**
++ * Returns whether at least one bit is 0.
++ */
++static inline bool
++is_not_all_bits(UNUSED struct hash_table *ht, const nir_alu_instr *instr,
++                unsigned src, unsigned num_components,
++                const uint8_t *swizzle)
++{
++   if (nir_src_as_const_value(instr->src[src].src) == NULL)
++      return false;
++
++   for (unsigned i = 0; i < num_components; i++) {
++      const int64_t c = nir_src_comp_as_int(instr->src[src].src, swizzle[i]);
++      if (c == -1)
++         return false;
++   }
++
++   return true;
++}
++
+ static inline bool
+ no_signed_wrap(const nir_alu_instr *instr)
+ {
+-- 
+GitLab
+
