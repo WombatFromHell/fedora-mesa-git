@@ -7,8 +7,8 @@ BUILDDIR="output"
 REPODIR="mesa-git"
 PATCHES=(
 	34918
-	35269
-	35445
+	# 35269 # important for RDNA3
+	# 35445
 	# 35734 # needs rebasing
 	35746
 	35784
@@ -26,8 +26,8 @@ HACK_REPO=(--branch "$BRANCH_NAME" https://gitlab.freedesktop.org/pixelcluster/m
 HACK_REV="916c15386bdd1e69dc4606bb545be15195e7a6d2"
 #
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-# REV="c7cb7b7dc3a79c78aa8e164075385184606a972e" # pin to latest pipeline-checked commit
-REV="e1acffbfc00aa11710ae55ae7426461cde1fbbb9" # pin to last known-good (6/26/25)
+REV="10ef9c6a80f58c9e20099dcc5f64c6d953174e9f" # pin to last known-good (6/26/25)
+# REV="834389dbde665d943885c7ef9fcf0e2c03258cc9" # pin to 25.1.5
 
 FP8HACK=0
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
