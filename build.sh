@@ -25,7 +25,6 @@ HACK_REV="916c15386bdd1e69dc4606bb545be15195e7a6d2"
 #
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
 REV="34f1a8f70744efc1c7d66644938ad794d1868cb5" # pin to last known-good (7/7/25)
-# REV="10ef9c6a80f58c9e20099dcc5f64c6d953174e9f" # pin to last known-good (6/26/25)
 
 FP8HACK=0
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
@@ -50,10 +49,12 @@ fi
 
 update_patches() {
 	local base_url="https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests"
+	local path
+	path="$(realpath ./patches)"
+
+	rm -f "$path/*.patch"
 	for patch in "${PATCHES[@]}"; do
 		local file="${patch}.patch"
-		local path
-		path="$(realpath ./patches)"
 
 		echo "Re-fetching '$file'..."
 		curl -L "${base_url}/${file}" -o "${path}/${file}" 2>/dev/null
