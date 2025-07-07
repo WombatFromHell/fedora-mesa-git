@@ -1,7 +1,7 @@
 From 6ddb58ef48cb2615daee379bb9ee3d3cbf1e6918 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Daniel=20Sch=C3=BCrmann?= <daniel@schuermann.dev>
 Date: Thu, 11 Apr 2024 10:46:51 +0200
-Subject: [PATCH 1/8] !35783
+Subject: [PATCH 1/7] !35783
 
 nir: remove recursive check in nir_lower_phis_to_scalar()
 
@@ -715,7 +715,7 @@ GitLab
 From e44452bc1bd3eb42ef3196c17c9bb94584bd3e05 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Daniel=20Sch=C3=BCrmann?= <daniel@schuermann.dev>
 Date: Sun, 29 Jun 2025 10:06:06 +0200
-Subject: [PATCH 2/8] aco/isel: refactor emission of bitwise logical operations
+Subject: [PATCH 2/7] aco/isel: refactor emission of bitwise logical operations
 
 ---
  src/amd/compiler/aco_builder_h.py             |  14 ++-
@@ -916,7 +916,7 @@ GitLab
 From f9b302c08ae2183ca099fd8f74be5e95087c3dc3 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Daniel=20Sch=C3=BCrmann?= <daniel@schuermann.dev>
 Date: Fri, 27 Jun 2025 08:58:26 +0200
-Subject: [PATCH 3/8] aco: allow subdword vector-definitions on some VALU
+Subject: [PATCH 3/7] aco: allow subdword vector-definitions on some VALU
  instructions
 
 ---
@@ -981,10 +981,10 @@ index 67f1abccb9b87..db2375573ca6f 100644
 GitLab
 
 
-From 3e539c550be74305da5d04746a463593e4f2b863 Mon Sep 17 00:00:00 2001
+From bd24494fe74017e769bafa3176012beb1a4b3494 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Daniel=20Sch=C3=BCrmann?= <daniel@schuermann.dev>
 Date: Thu, 26 Jun 2025 17:36:16 +0200
-Subject: [PATCH 4/8] radv: don't lower subdword phis to scalar
+Subject: [PATCH 4/7] radv: don't lower subdword phis to scalar
 
 Totals from 193 (0.24% of 79839) affected shaders: (Navi48)
 MaxWaves: 6004 -> 6024 (+0.33%)
@@ -1006,28 +1006,20 @@ SALU: 36672 -> 37318 (+1.76%); split: -0.02%, +1.78%
 VMEM: 4012 -> 3762 (-6.23%); split: -6.83%, +0.60%
 SMEM: 4300 -> 4303 (+0.07%)
 ---
- src/amd/common/nir/ac_nir.c                           | 11 +++++++++++
- src/amd/common/nir/ac_nir.h                           |  3 +++
- src/amd/common/nir/ac_nir_lower_ngg.c                 |  2 +-
- src/amd/common/nir/ac_nir_lower_ngg_mesh.c            |  2 +-
- src/amd/common/nir/ac_nir_lower_tess_io_to_mem.c      |  2 +-
- .../compiler/instruction_selection/aco_isel_setup.cpp |  2 +-
- src/amd/vulkan/radv_shader.c                          |  2 +-
- 7 files changed, 19 insertions(+), 5 deletions(-)
+ src/amd/common/nir/ac_nir.c                            | 10 ++++++++++
+ src/amd/common/nir/ac_nir.h                            |  3 +++
+ src/amd/common/nir/ac_nir_lower_ngg.c                  |  2 +-
+ src/amd/common/nir/ac_nir_lower_ngg_mesh.c             |  2 +-
+ src/amd/common/nir/ac_nir_lower_tess_io_to_mem.c       |  2 +-
+ .../compiler/instruction_selection/aco_isel_setup.cpp  |  2 +-
+ src/amd/vulkan/radv_shader.c                           |  2 +-
+ 7 files changed, 18 insertions(+), 5 deletions(-)
 
 diff --git a/src/amd/common/nir/ac_nir.c b/src/amd/common/nir/ac_nir.c
-index 52911038ae05b..2d6a4b02dd491 100644
+index 52911038ae05b..264525f55f42a 100644
 --- a/src/amd/common/nir/ac_nir.c
 +++ b/src/amd/common/nir/ac_nir.c
-@@ -6,6 +6,7 @@
- 
- #include "ac_gpu_info.h"
- #include "ac_nir.h"
-+#include "util/u_math.h"
- #include "ac_nir_helpers.h"
- #include "nir_builder.h"
- 
-@@ -879,3 +880,13 @@ ac_nir_repack_invocations_in_workgroup(nir_builder *b, nir_def **input_bool,
+@@ -879,3 +879,13 @@ ac_nir_repack_invocations_in_workgroup(nir_builder *b, nir_def **input_bool,
           nir_mbcnt_amd(b, input_mask[i], wg_repacked_index_base);
     }
  }
@@ -1124,53 +1116,59 @@ index 36ede34e8df15..5e7b8bd0d3b3a 100644
 GitLab
 
 
-From 220c38bda64bb8359a2a1b83038eb1b71ce85eea Mon Sep 17 00:00:00 2001
+From 64b2204234de30ee59bc3b1393e0e887d3022879 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Daniel=20Sch=C3=BCrmann?= <daniel@schuermann.dev>
 Date: Fri, 27 Jun 2025 08:29:39 +0200
-Subject: [PATCH 5/8] radv: vectorize some integer arithmetic and bcsel with
+Subject: [PATCH 5/7] radv: vectorize some integer arithmetic and bcsel with
  scalar condition
 
-Totals from 99 (0.12% of 79839) affected shaders: (Navi48)
-Instrs: 126476 -> 125374 (-0.87%); split: -0.94%, +0.07%
-CodeSize: 693844 -> 685108 (-1.26%); split: -1.41%, +0.15%
-Latency: 2003047 -> 1982965 (-1.00%); split: -1.02%, +0.01%
-InvThroughput: 390235 -> 380440 (-2.51%)
-VClause: 2113 -> 2112 (-0.05%)
-Copies: 13677 -> 13210 (-3.41%)
-PreVGPRs: 2712 -> 2674 (-1.40%)
-VALU: 62588 -> 61729 (-1.37%); split: -1.37%, +0.00%
-SALU: 26612 -> 26336 (-1.04%)
-VMEM: 2814 -> 2898 (+2.99%)
+Totals from 106 (0.13% of 79839) affected shaders: (Navi48)
+Instrs: 131026 -> 130042 (-0.75%); split: -0.82%, +0.07%
+CodeSize: 719120 -> 711516 (-1.06%); split: -1.20%, +0.14%
+VGPRs: 5244 -> 5232 (-0.23%)
+Latency: 2020748 -> 2004602 (-0.80%); split: -0.81%, +0.01%
+InvThroughput: 393330 -> 385414 (-2.01%); split: -2.01%, +0.00%
+VClause: 2193 -> 2192 (-0.05%)
+Copies: 13963 -> 13558 (-2.90%); split: -2.91%, +0.01%
+PreVGPRs: 2953 -> 2921 (-1.08%)
+VALU: 65595 -> 64835 (-1.16%); split: -1.16%, +0.00%
+SALU: 26887 -> 26611 (-1.03%)
+VMEM: 2921 -> 3005 (+2.88%)
 VOPD: 168 -> 173 (+2.98%)
 ---
- src/amd/vulkan/radv_pipeline.c | 45 ++++++++++++++++++++++++++++++++--
+ src/amd/vulkan/radv_pipeline.c | 49 ++++++++++++++++++++++++++++++++--
  src/amd/vulkan/radv_shader.c   |  2 ++
- 2 files changed, 45 insertions(+), 2 deletions(-)
+ 2 files changed, 49 insertions(+), 2 deletions(-)
 
 diff --git a/src/amd/vulkan/radv_pipeline.c b/src/amd/vulkan/radv_pipeline.c
-index 4077aaed7fae4..0bdfbaa126c6e 100644
+index 4077aaed7fae4..d06f3841d5ae4 100644
 --- a/src/amd/vulkan/radv_pipeline.c
 +++ b/src/amd/vulkan/radv_pipeline.c
-@@ -252,6 +252,18 @@ ycbcr_conversion_lookup(const void *data, uint32_t set, uint32_t binding, uint32
+@@ -252,6 +252,23 @@ ycbcr_conversion_lookup(const void *data, uint32_t set, uint32_t binding, uint32
     return ycbcr_samplers + array_index;
  }
  
 +static uint8_t
 +max_alu_src_identity_swizzle(const nir_alu_instr *alu, const nir_alu_src *src)
 +{
++   uint8_t max_vector = 32 / alu->def.bit_size;
 +   if (nir_src_is_const(src->src))
-+      return 32 / alu->def.bit_size;
-+   for (unsigned i = 0; i < alu->def.num_components; i++) {
-+      if (src->swizzle[i] != i)
-+         return i & 0x6;
++      return max_vector;
++
++   /* Return the number of correctly swizzled components. */
++   for (unsigned i = 1; i < alu->def.num_components; i++) {
++      if (src->swizzle[i] != src->swizzle[0] + i)
++         /* Ensure that the result is a power of 2. */
++         return MAX2(i & 0x6, 1);
 +   }
-+   return 32 / alu->def.bit_size;
++
++   return max_vector;
 +}
 +
  static uint8_t
  opt_vectorize_callback(const nir_instr *instr, const void *_)
  {
-@@ -280,10 +292,39 @@ opt_vectorize_callback(const nir_instr *instr, const void *_)
+@@ -280,10 +297,38 @@ opt_vectorize_callback(const nir_instr *instr, const void *_)
     }
  
     const unsigned bit_size = alu->def.bit_size;
@@ -1178,7 +1176,7 @@ index 4077aaed7fae4..0bdfbaa126c6e 100644
 +   if (bit_size == 16 && aco_nir_op_supports_packed_math_16bit(alu))
 +      return 2;
 +
-+   if ((bit_size != 8 && bit_size != 16) || alu->def.num_components == 1)
++   if (bit_size != 8 && bit_size != 16)
        return 1;
  
 -   return aco_nir_op_supports_packed_math_16bit(alu) ? 2 : 1;
@@ -1189,25 +1187,24 @@ index 4077aaed7fae4..0bdfbaa126c6e 100644
 +   switch (alu->op) {
 +   case nir_op_bcsel:
 +      /* Must have scalar condition. */
-+      for (unsigned i = 0; i < alu->def.num_components; i++) {
-+         if (alu->src[0].swizzle[i] != 0)
++      for (unsigned i = 1; i < alu->def.num_components; i++) {
++         if (alu->src[0].swizzle[i] != alu->src[0].swizzle[0])
 +            return 1;
 +      }
 +      for (unsigned idx = 1; idx < 3; idx++)
-+         target_width = MAX2(target_width, max_alu_src_identity_swizzle(alu, &alu->src[idx]));
++         target_width = MIN2(target_width, max_alu_src_identity_swizzle(alu, &alu->src[idx]));
 +      break;
 +   case nir_op_iand:
 +   case nir_op_ior:
 +   case nir_op_ixor:
 +   case nir_op_inot:
 +      for (unsigned idx = 0; idx < nir_op_infos[alu->op].num_inputs; idx++)
-+         target_width = MAX2(target_width, max_alu_src_identity_swizzle(alu, &alu->src[idx]));
++         target_width = MIN2(target_width, max_alu_src_identity_swizzle(alu, &alu->src[idx]));
 +      break;
 +   default:
-+      target_width = 1;
++      return 1;
 +   }
 +
-+   target_width = MAX2(target_width, 1);
 +   return target_width;
  }
  
@@ -1229,73 +1226,22 @@ index 5e7b8bd0d3b3a..245c6665fd532 100644
 GitLab
 
 
-From 91f5f2f032fa7485139c98a6ec89635499055510 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Daniel=20Sch=C3=BCrmann?= <daniel@schuermann.dev>
-Date: Mon, 30 Jun 2025 17:54:18 +0200
-Subject: [PATCH 6/8] [SQUASH] allow for .zw
-
----
- src/amd/vulkan/radv_pipeline.c | 18 ++++++++++++------
- 1 file changed, 12 insertions(+), 6 deletions(-)
-
-diff --git a/src/amd/vulkan/radv_pipeline.c b/src/amd/vulkan/radv_pipeline.c
-index 0bdfbaa126c6e..555f1c5233923 100644
---- a/src/amd/vulkan/radv_pipeline.c
-+++ b/src/amd/vulkan/radv_pipeline.c
-@@ -255,13 +255,20 @@ ycbcr_conversion_lookup(const void *data, uint32_t set, uint32_t binding, uint32
- static uint8_t
- max_alu_src_identity_swizzle(const nir_alu_instr *alu, const nir_alu_src *src)
- {
-+   uint8_t max_vector = 32 / alu->def.bit_size;
-    if (nir_src_is_const(src->src))
--      return 32 / alu->def.bit_size;
--   for (unsigned i = 0; i < alu->def.num_components; i++) {
--      if (src->swizzle[i] != i)
--         return i & 0x6;
-+      return max_vector;
-+
-+   /* The first swizzle must be aligned to a multiple of the vector-width. */
-+   if (src->swizzle[0] % max_vector)
-+      return 1;
-+
-+   for (unsigned i = 1; i < alu->def.num_components; i++) {
-+      if (src->swizzle[i] != src->swizzle[0] + i)
-+         return MAX2(i & 0x6, 1);
-    }
--   return 32 / alu->def.bit_size;
-+
-+   return max_vector;
- }
- 
- static uint8_t
-@@ -323,7 +330,6 @@ opt_vectorize_callback(const nir_instr *instr, const void *_)
-       target_width = 1;
-    }
- 
--   target_width = MAX2(target_width, 1);
-    return target_width;
- }
- 
--- 
-GitLab
-
-
-From 533c8c1c6033362ed97b2159fd107fcd0048cbe6 Mon Sep 17 00:00:00 2001
+From 68e7a8c49eeae4b8d422fa1e7beebf718008890e Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Daniel=20Sch=C3=BCrmann?= <daniel@schuermann.dev>
 Date: Sun, 29 Jun 2025 11:02:33 +0200
-Subject: [PATCH 7/8] aco: split vectorized bcsel and bitwise logic VGPR
+Subject: [PATCH 6/7] aco: split vectorized bcsel and bitwise logic VGPR
  definitions
 
 This has a slightly negative effect on parallel-rdp, but positively affects FSR4.
 
-Totals from 13 (0.02% of 79839) affected shaders: (Navi48)
-Instrs: 62805 -> 62911 (+0.17%); split: -0.01%, +0.18%
-CodeSize: 348276 -> 348976 (+0.20%); split: -0.02%, +0.22%
-Latency: 1815942 -> 1818561 (+0.14%)
-InvThroughput: 362460 -> 363497 (+0.29%); split: -0.04%, +0.32%
-Copies: 9215 -> 9280 (+0.71%); split: -0.09%, +0.79%
-PreVGPRs: 1331 -> 1346 (+1.13%)
-VALU: 33956 -> 34021 (+0.19%); split: -0.02%, +0.21%
+Totals from 14 (0.02% of 79839) affected shaders: (Navi48)
+Instrs: 63543 -> 63646 (+0.16%); split: -0.01%, +0.17%
+CodeSize: 352888 -> 353608 (+0.20%); split: -0.02%, +0.23%
+Latency: 1822354 -> 1825036 (+0.15%)
+InvThroughput: 364683 -> 365738 (+0.29%); split: -0.04%, +0.32%
+Copies: 9299 -> 9363 (+0.69%); split: -0.11%, +0.80%
+PreVGPRs: 1381 -> 1394 (+0.94%)
+VALU: 34511 -> 34575 (+0.19%); split: -0.03%, +0.21%
 ---
  src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp | 4 ++++
  1 file changed, 4 insertions(+)
@@ -1333,10 +1279,10 @@ index db2375573ca6f..eebc99c945578 100644
 GitLab
 
 
-From 94654734ecb6be1423a88d57a057fb892faf7cfe Mon Sep 17 00:00:00 2001
+From ce0343d2cd3006f8acc71643356858df758aba7b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Daniel=20Sch=C3=BCrmann?= <daniel@schuermann.dev>
 Date: Mon, 30 Jun 2025 09:33:19 +0200
-Subject: [PATCH 8/8] aco/isel: allow to select SGPR defs for vectorized bcsel
+Subject: [PATCH 7/7] aco/isel: allow to select SGPR defs for vectorized bcsel
  and logical operations
 
 No fossil changes.

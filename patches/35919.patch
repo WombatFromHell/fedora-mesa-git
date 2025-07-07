@@ -1,0 +1,294 @@
+From 782083fc50d4245525fb4cb9a7023ec5bdf3935b Mon Sep 17 00:00:00 2001
+From: Georg Lehmann <dadschoorse@gmail.com>
+Date: Thu, 3 Jul 2025 17:03:00 +0200
+Subject: [PATCH 1/2] aco/print_asm: use real true16 instr on gfx11+
+
+Fake16 doesn't print opsel on v_cndmask_b16, so it looks really broken.
+---
+ src/amd/compiler/aco_print_asm.cpp        | 12 ++++--
+ src/amd/compiler/tests/test_assembler.cpp | 48 +++++++++++------------
+ 2 files changed, 33 insertions(+), 27 deletions(-)
+
+diff --git a/src/amd/compiler/aco_print_asm.cpp b/src/amd/compiler/aco_print_asm.cpp
+index 40b002458f67b..f54d0bb5af52a 100644
+--- a/src/amd/compiler/aco_print_asm.cpp
++++ b/src/amd/compiler/aco_print_asm.cpp
+@@ -316,14 +316,20 @@ print_asm_llvm(Program* program, std::vector<uint32_t>& binary, unsigned exec_si
+                            llvm::StringRef(block_names[block_names.size() - 1].data()), 0);
+    }
+ 
+-   const char* features = "";
++   std::string features = "";
+    if (program->gfx_level >= GFX10 && program->wave_size == 64) {
+-      features = "+wavefrontsize64";
++      features += "+wavefrontsize64";
++   }
++
++   if (program->gfx_level >= GFX11) {
++      if (!features.empty())
++         features += ",";
++      features += "+real-true16";
+    }
+ 
+    LLVMDisasmContextRef disasm =
+       LLVMCreateDisasmCPUFeatures("amdgcn-mesa-mesa3d", ac_get_llvm_processor_name(program->family),
+-                                  features, &symbols, 0, NULL, NULL);
++                                  features.c_str(), &symbols, 0, NULL, NULL);
+ 
+    size_t pos = 0;
+    bool invalid = false;
+diff --git a/src/amd/compiler/tests/test_assembler.cpp b/src/amd/compiler/tests/test_assembler.cpp
+index 2f5716da18abf..d59a9be573aad 100644
+--- a/src/amd/compiler/tests/test_assembler.cpp
++++ b/src/amd/compiler/tests/test_assembler.cpp
+@@ -1162,16 +1162,16 @@ BEGIN_TEST(assembler.vinterp)
+          ->vinterp_inreg()
+          .neg[2] = true;
+ 
+-      //! v_interp_p10_f16_f32 v42, v10, v20, v30 op_sel:[1,0,0,0] wait_exp:6 ; cd020e2a 047a290a
++      //! v_interp_p10_f16_f32 v42, v10.h, v20, v30.l op_sel:[1,0,0,0] wait_exp:6 ; cd020e2a 047a290a
+       bld.vinterp_inreg(aco_opcode::v_interp_p10_f16_f32_inreg, dst, op0, op1, op2, 0x1, 6);
+ 
+-      //! v_interp_p2_f16_f32 v42, v10, v20, v30 op_sel:[0,1,0,0] wait_exp:6 ; cd03162a 047a290a
++      //! v_interp_p2_f16_f32 v42.l, v10.l, v20, v30 op_sel:[0,1,0,0] wait_exp:6 ; cd03162a 047a290a
+       bld.vinterp_inreg(aco_opcode::v_interp_p2_f16_f32_inreg, dst, op0, op1, op2, 0x2, 6);
+ 
+-      //! v_interp_p10_rtz_f16_f32 v42, v10, v20, v30 op_sel:[0,0,1,0] wait_exp:6 ; cd04262a 047a290a
++      //! v_interp_p10_rtz_f16_f32 v42, v10.l, v20, v30.h op_sel:[0,0,1,0] wait_exp:6 ; cd04262a 047a290a
+       bld.vinterp_inreg(aco_opcode::v_interp_p10_rtz_f16_f32_inreg, dst, op0, op1, op2, 0x4, 6);
+ 
+-      //! v_interp_p2_rtz_f16_f32 v42, v10, v20, v30 op_sel:[0,0,0,1] wait_exp:6 ; cd05462a 047a290a
++      //! v_interp_p2_rtz_f16_f32 v42.h, v10.l, v20, v30 op_sel:[0,0,0,1] wait_exp:6 ; cd05462a 047a290a
+       bld.vinterp_inreg(aco_opcode::v_interp_p2_rtz_f16_f32_inreg, dst, op0, op1, op2, 0x8, 6);
+ 
+       //! v_interp_p10_f32 v42, v10, v20, v30 clamp wait_exp:6        ; cd00862a 047a290a
+@@ -1269,68 +1269,68 @@ BEGIN_TEST(assembler.vop12c_v128)
+       //; if llvm_ver == 16:
+       //;    insert_pattern('v_mul_f16_e32 v0, v1, v2 ; Error: VGPR_32_Lo128: unknown register 128 ; 6a000501')
+       //; else:
+-      //;    insert_pattern('v_mul_f16_e32 v0, v1, v2                                    ; 6a000501')
++      //;    insert_pattern('v_mul_f16_e32 v0.l, v1.l, v2.l                                    ; 6a000501')
+       bld.vop2(aco_opcode::v_mul_f16, dst_v0, op_v1, op_v2);
+ 
+-      //! v_mul_f16_e64 v128, v1, v2                                  ; d5350080 00020501
++      //! v_mul_f16_e64 v128.l, v1.l, v2.l                                  ; d5350080 00020501
+       bld.vop2(aco_opcode::v_mul_f16, dst_v128, op_v1, op_v2);
+ 
+-      //! v_mul_f16_e64 v0, v129, v2                                  ; d5350000 00020581
++      //! v_mul_f16_e64 v0.l, v129.l, v2.l                                  ; d5350000 00020581
+       bld.vop2(aco_opcode::v_mul_f16, dst_v0, op_v129, op_v2);
+ 
+-      //! v_mul_f16_e64 v0, v1, v130                                  ; d5350000 00030501
++      //! v_mul_f16_e64 v0.l, v1.l, v130.l                                  ; d5350000 00030501
+       bld.vop2(aco_opcode::v_mul_f16, dst_v0, op_v1, op_v130);
+ 
+-      //! v_rcp_f16_e64 v128, v1                                      ; d5d40080 00000101
++      //! v_rcp_f16_e64 v128.l, v1.l                                      ; d5d40080 00000101
+       bld.vop1(aco_opcode::v_rcp_f16, dst_v128, op_v1);
+ 
+-      //! v_cmp_eq_f16_e64 vcc, v129, v2                              ; d402006a 00020581
++      //! v_cmp_eq_f16_e64 vcc, v129.l, v2.l                              ; d402006a 00020581
+       bld.vopc(aco_opcode::v_cmp_eq_f16, bld.def(s2, vcc), op_v129, op_v2);
+ 
+-      //! v_mul_f16_e64_dpp v128, v1, v2 row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5350080 000204fa ff0d2101
++      //! v_mul_f16_e64_dpp v128.l, v1.l, v2.l row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5350080 000204fa ff0d2101
+       bld.vop2_dpp(aco_opcode::v_mul_f16, dst_v128, op_v1, op_v2, dpp_row_rr(1));
+ 
+-      //! v_mul_f16_e64_dpp v0, v129, v2 row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5350000 000204fa ff0d2181
++      //! v_mul_f16_e64_dpp v0.l, v129.l, v2.l row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5350000 000204fa ff0d2181
+       bld.vop2_dpp(aco_opcode::v_mul_f16, dst_v0, op_v129, op_v2, dpp_row_rr(1));
+ 
+-      //! v_mul_f16_e64_dpp v0, v1, v130 row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5350000 000304fa ff0d2101
++      //! v_mul_f16_e64_dpp v0.l, v1.l, v130.l row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5350000 000304fa ff0d2101
+       bld.vop2_dpp(aco_opcode::v_mul_f16, dst_v0, op_v1, op_v130, dpp_row_rr(1));
+ 
+-      //! v_mul_f16_e64_dpp v128, v1, v2 dpp8:[0,0,0,0,0,0,0,0] fi:1  ; d5350080 000204ea 00000001
++      //! v_mul_f16_e64_dpp v128.l, v1.l, v2.l dpp8:[0,0,0,0,0,0,0,0] fi:1  ; d5350080 000204ea 00000001
+       bld.vop2_dpp8(aco_opcode::v_mul_f16, dst_v128, op_v1, op_v2);
+ 
+-      //! v_mul_f16_e64_dpp v0, v129, v2 dpp8:[0,0,0,0,0,0,0,0] fi:1  ; d5350000 000204ea 00000081
++      //! v_mul_f16_e64_dpp v0.l, v129.l, v2.l dpp8:[0,0,0,0,0,0,0,0] fi:1  ; d5350000 000204ea 00000081
+       bld.vop2_dpp8(aco_opcode::v_mul_f16, dst_v0, op_v129, op_v2);
+ 
+-      //! v_mul_f16_e64_dpp v0, v1, v130 dpp8:[0,0,0,0,0,0,0,0] fi:1  ; d5350000 000304ea 00000001
++      //! v_mul_f16_e64_dpp v0.l, v1.l, v130.l dpp8:[0,0,0,0,0,0,0,0] fi:1  ; d5350000 000304ea 00000001
+       bld.vop2_dpp8(aco_opcode::v_mul_f16, dst_v0, op_v1, op_v130);
+ 
+-      //! v_fma_f16 v128, v1, v2, 0x60                                ; d6480080 03fe0501 00000060
++      //! v_fma_f16 v128.l, v1.l, v2.l, 0x60                                ; d6480080 03fe0501 00000060
+       bld.vop2(aco_opcode::v_fmaak_f16, dst_v128, op_v1, op_v2, Operand::literal32(96));
+ 
+-      //! v_fma_f16 v128, v1, 0x60, v2                                ; d6480080 0409ff01 00000060
++      //! v_fma_f16 v128.l, v1.l, 0x60, v2.l                                ; d6480080 0409ff01 00000060
+       bld.vop2(aco_opcode::v_fmamk_f16, dst_v128, op_v1, op_v2, Operand::literal32(96));
+ 
+-      //! v_rcp_f16_e64_dpp v128, -v1 row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5d40080 200000fa ff1d2101
++      //! v_rcp_f16_e64_dpp v128.l, -v1.l row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5d40080 200000fa ff1d2101
+       bld.vop1_dpp(aco_opcode::v_rcp_f16, dst_v128, op_v1, dpp_row_rr(1))->dpp16().neg[0] = true;
+ 
+-      //! v_rcp_f16_e64_dpp v128, |v1| row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5d40180 000000fa ff2d2101
++      //! v_rcp_f16_e64_dpp v128.l, |v1.l| row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5d40180 000000fa ff2d2101
+       bld.vop1_dpp(aco_opcode::v_rcp_f16, dst_v128, op_v1, dpp_row_rr(1))->dpp16().abs[0] = true;
+ 
+-      //! v_mul_f16_e64_dpp v128, -v1, v2 row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5350080 200204fa ff1d2101
++      //! v_mul_f16_e64_dpp v128.l, -v1.l, v2.l row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5350080 200204fa ff1d2101
+       bld.vop2_dpp(aco_opcode::v_mul_f16, dst_v128, op_v1, op_v2, dpp_row_rr(1))->dpp16().neg[0] =
+          true;
+ 
+-      //! v_mul_f16_e64_dpp v128, |v1|, v2 row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5350180 000204fa ff2d2101
++      //! v_mul_f16_e64_dpp v128.l, |v1.l|, v2.l row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d5350180 000204fa ff2d2101
+       bld.vop2_dpp(aco_opcode::v_mul_f16, dst_v128, op_v1, op_v2, dpp_row_rr(1))->dpp16().abs[0] =
+          true;
+ 
+-      //! v_cmp_eq_f16_e64_dpp vcc, -v129, v2 row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d402006a 200204fa ff1d2181
++      //! v_cmp_eq_f16_e64_dpp vcc, -v129.l, v2.l row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d402006a 200204fa ff1d2181
+       bld.vopc_dpp(aco_opcode::v_cmp_eq_f16, bld.def(s2, vcc), op_v129, op_v2, dpp_row_rr(1))
+          ->dpp16()
+          .neg[0] = true;
+ 
+-      //! v_cmp_eq_f16_e64_dpp vcc, |v129|, v2 row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d402016a 000204fa ff2d2181
++      //! v_cmp_eq_f16_e64_dpp vcc, |v129.l|, v2.l row_ror:1 row_mask:0xf bank_mask:0xf bound_ctrl:1 fi:1 ; d402016a 000204fa ff2d2181
+       bld.vopc_dpp(aco_opcode::v_cmp_eq_f16, bld.def(s2, vcc), op_v129, op_v2, dpp_row_rr(1))
+          ->dpp16()
+          .abs[0] = true;
+-- 
+GitLab
+
+
+From 8b37f1cb8b9a86e768fe05c83f96c69aae8eaf58 Mon Sep 17 00:00:00 2001
+From: Georg Lehmann <dadschoorse@gmail.com>
+Date: Thu, 3 Jul 2025 16:34:05 +0200
+Subject: [PATCH 2/2] aco/ra: convert bitwise instruction to gfx11+ 16bit on
+ demand
+
+The 32bit versions are smaller, allow more optimizations and VOPD,
+so only use the 16bit opcodes if nessecary.
+
+Foz-DB Navi31:
+Totals from 84 (0.10% of 80237) affected shaders:
+Instrs: 176673 -> 176347 (-0.18%); split: -0.20%, +0.01%
+CodeSize: 970148 -> 969716 (-0.04%); split: -0.08%, +0.03%
+VGPRs: 5876 -> 5864 (-0.20%)
+Latency: 2805974 -> 2805674 (-0.01%); split: -0.02%, +0.01%
+InvThroughput: 769007 -> 768738 (-0.03%); split: -0.04%, +0.01%
+VClause: 2593 -> 2597 (+0.15%)
+Copies: 23749 -> 23487 (-1.10%); split: -1.11%, +0.00%
+VALU: 107124 -> 106862 (-0.24%); split: -0.25%, +0.00%
+---
+ src/amd/compiler/aco_ir.h                    |  6 +++
+ src/amd/compiler/aco_register_allocation.cpp | 54 ++++++++++++++++++++
+ 2 files changed, 60 insertions(+)
+
+diff --git a/src/amd/compiler/aco_ir.h b/src/amd/compiler/aco_ir.h
+index bfa0427bebed5..04194181f2221 100644
+--- a/src/amd/compiler/aco_ir.h
++++ b/src/amd/compiler/aco_ir.h
+@@ -271,6 +271,12 @@ withoutVOP3(Format format)
+    return (Format)((uint32_t)format & ~((uint32_t)Format::VOP3));
+ }
+ 
++constexpr Format
++withoutVOP2(Format format)
++{
++   return (Format)((uint32_t)format & ~((uint32_t)Format::VOP2));
++}
++
+ enum class RegType {
+    sgpr,
+    vgpr,
+diff --git a/src/amd/compiler/aco_register_allocation.cpp b/src/amd/compiler/aco_register_allocation.cpp
+index 62153a89a3989..311c49ed49c8b 100644
+--- a/src/amd/compiler/aco_register_allocation.cpp
++++ b/src/amd/compiler/aco_register_allocation.cpp
+@@ -568,6 +568,36 @@ is_sgpr_writable_without_side_effects(amd_gfx_level gfx_level, PhysReg reg)
+           (!has_flat_scr_lo_gfx7_or_xnack_mask || (reg != 104 || reg != 105));
+ }
+ 
++static bool
++convert_bitwise_to_16bit(Instruction* instr)
++{
++   if (instr->opcode == aco_opcode::v_cndmask_b32) {
++      instr->opcode = aco_opcode::v_cndmask_b16;
++      instr->format = withoutVOP2(asVOP3(instr->format));
++      instr->valu().abs = 0;
++      instr->valu().neg = 0;
++   } else if (instr->opcode == aco_opcode::v_mov_b32) {
++      instr->opcode = aco_opcode::v_mov_b16;
++      instr->valu().abs = 0;
++      instr->valu().neg = 0;
++   } else if (instr->opcode == aco_opcode::v_not_b32) {
++      instr->opcode = aco_opcode::v_not_b16;
++   } else if (instr->opcode == aco_opcode::v_and_b32) {
++      instr->opcode = aco_opcode::v_and_b16;
++      instr->format = withoutVOP2(asVOP3(instr->format));
++   } else if (instr->opcode == aco_opcode::v_or_b32) {
++      instr->opcode = aco_opcode::v_or_b16;
++      instr->format = withoutVOP2(asVOP3(instr->format));
++   } else if (instr->opcode == aco_opcode::v_xor_b32) {
++      instr->opcode = aco_opcode::v_xor_b16;
++      instr->format = withoutVOP2(asVOP3(instr->format));
++   } else {
++      return false;
++   }
++
++   return true;
++}
++
+ unsigned
+ get_subdword_operand_stride(amd_gfx_level gfx_level, const aco_ptr<Instruction>& instr,
+                             unsigned idx, RegClass rc)
+@@ -592,6 +622,13 @@ get_subdword_operand_stride(amd_gfx_level gfx_level, const aco_ptr<Instruction>&
+    }
+ 
+    switch (instr->opcode) {
++   case aco_opcode::v_mov_b32:
++   case aco_opcode::v_not_b32:
++   case aco_opcode::v_and_b32:
++   case aco_opcode::v_or_b32:
++   case aco_opcode::v_xor_b32:
++   case aco_opcode::v_cndmask_b32:
++      return gfx_level >= GFX11 && instr->definitions[0].bytes() <= 2 ? 2 : 4;
+    case aco_opcode::v_cvt_f32_ubyte0: return 1;
+    case aco_opcode::ds_write_b8:
+    case aco_opcode::ds_write_b16: return gfx_level >= GFX9 ? 2 : 4;
+@@ -642,6 +679,8 @@ add_subdword_operand(ra_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, uns
+          return;
+       }
+ 
++      convert_bitwise_to_16bit(instr.get());
++
+       assert(can_use_opsel(gfx_level, instr->opcode, idx));
+       instr->valu().opsel[idx] = true;
+       return;
+@@ -703,6 +742,16 @@ DefInfo::get_subdword_definition_info(Program* program, const aco_ptr<Instructio
+           can_use_opsel(gfx_level, instr->opcode, -1)) {
+          data_stride = 2;
+          stride = rc == v2b ? 2 : stride;
++      } else if ((instr->opcode == aco_opcode::v_cndmask_b32 ||
++                  instr->opcode == aco_opcode::v_mov_b32 ||
++                  instr->opcode == aco_opcode::v_not_b32 ||
++                  instr->opcode == aco_opcode::v_and_b32 || instr->opcode == aco_opcode::v_or_b32 ||
++                  instr->opcode == aco_opcode::v_xor_b32) &&
++                 program->gfx_level >= GFX11) {
++         /* Convert to 16bit opcode on demand. */
++         rc = v2b;
++         data_stride = 2;
++         stride = 2;
+       }
+       return;
+    }
+@@ -787,6 +836,11 @@ add_subdword_definition(Program* program, aco_ptr<Instruction>& instr, PhysReg r
+          return;
+       }
+ 
++      if (convert_bitwise_to_16bit(instr.get())) {
++         if (reg.byte() == 0)
++            return;
++      }
++
+       /* use opsel */
+       assert(reg.byte() == 2);
+       assert(can_use_opsel(gfx_level, instr->opcode, -1));
+-- 
+GitLab
+

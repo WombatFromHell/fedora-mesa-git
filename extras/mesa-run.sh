@@ -6,7 +6,7 @@ MESA="$HOME/mesa"
 ARGS=(
 	# "DXIL_SPIRV_CONFIG=wmma_rdna3_workaround" # uncomment for RDNA3
 	"PROTON_FSR4_UPGRADE=1"
-	"WINEDLLOVERRIDES=dxgi=n,b,winmm=n,b"
+	"WINEDLLOVERRIDES=dxgi,winmm=n,b"
 	"radv_cooperative_matrix2_nv=false"
 )
 ENV_VARS=(

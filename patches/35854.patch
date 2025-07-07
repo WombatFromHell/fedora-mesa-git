@@ -1,0 +1,382 @@
+From 8cc710f544e9974eecbe861f4143605491cf7ab0 Mon Sep 17 00:00:00 2001
+From: Georg Lehmann <dadschoorse@gmail.com>
+Date: Mon, 30 Jun 2025 09:49:02 +0200
+Subject: [PATCH 1/5] aco/isel: implement 16bit vec2 shifts
+
+The source bit size mismatch is a bit annoying, but it's still worth it to
+vectorize these.
+
+Foz-DB Navi48:
+Totals from 85 (0.11% of 80251) affected shaders:
+Instrs: 119073 -> 118827 (-0.21%); split: -0.21%, +0.00%
+CodeSize: 669604 -> 667552 (-0.31%); split: -0.31%, +0.00%
+VGPRs: 4796 -> 4736 (-1.25%)
+Latency: 1907685 -> 1901983 (-0.30%); split: -0.32%, +0.02%
+InvThroughput: 642603 -> 640680 (-0.30%); split: -0.33%, +0.03%
+VClause: 2088 -> 2091 (+0.14%)
+Copies: 18300 -> 18394 (+0.51%); split: -0.01%, +0.52%
+Branches: 3452 -> 3440 (-0.35%)
+VALU: 63378 -> 63144 (-0.37%); split: -0.37%, +0.00%
+SALU: 23065 -> 23076 (+0.05%); split: -0.00%, +0.05%
+---
+ src/amd/compiler/aco_interface.cpp            |  8 ++--
+ .../aco_select_nir_alu.cpp                    | 41 +++++++++++++++++--
+ 2 files changed, 42 insertions(+), 7 deletions(-)
+
+diff --git a/src/amd/compiler/aco_interface.cpp b/src/amd/compiler/aco_interface.cpp
+index a80a8189b65b6..3897c5b854025 100644
+--- a/src/amd/compiler/aco_interface.cpp
++++ b/src/amd/compiler/aco_interface.cpp
+@@ -469,10 +469,10 @@ aco_nir_op_supports_packed_math_16bit(const nir_alu_instr* alu)
+    case nir_op_imin:
+    case nir_op_imax:
+    case nir_op_umin:
+-   case nir_op_umax: return true;
+-   case nir_op_ishl: /* TODO: in NIR, these have 32bit shift operands */
+-   case nir_op_ishr: /* while Radeon needs 16bit operands when vectorized */
+-   case nir_op_ushr:
++   case nir_op_umax:
++   case nir_op_ishl:
++   case nir_op_ishr:
++   case nir_op_ushr: return true;
+    default: return false;
+    }
+ }
+diff --git a/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp b/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
+index 6c06f31650a57..48845052063e2 100644
+--- a/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
++++ b/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
+@@ -318,6 +318,41 @@ emit_idot_instruction(isel_context* ctx, nir_alu_instr* instr, aco_opcode op, Te
+    vop3p.neg_lo = neg_lo;
+ }
+ 
++void
++emit_pk_shift(isel_context* ctx, nir_alu_instr* instr, aco_opcode op, Temp dst)
++{
++   Builder bld = create_alu_builder(ctx, instr);
++   Temp src1 = get_alu_src_vop3p(ctx, instr->src[0]);
++   Temp src0;
++
++   bitarray8 opsel_lo = (instr->src[0].swizzle[0] & 1) << 1;
++   bitarray8 opsel_hi = (instr->src[0].swizzle[1] & 1) << 1;
++
++   /* NIR's shift operand is always 32bit, but we want 16bit here. */
++   if (instr->src[1].swizzle[0] == instr->src[1].swizzle[1]) {
++      src0 = get_alu_src(ctx, instr->src[1], 1);
++   } else {
++      Temp vec = get_ssa_temp(ctx, instr->src[1].src.ssa);
++      RegClass rc = RegClass::get(vec.type(), 4);
++
++      Temp comps[2];
++      for (unsigned i = 0; i < 2; i++) {
++         Temp comp = emit_extract_vector(ctx, vec, instr->src[1].swizzle[i], rc);
++         comps[i] = emit_extract_vector(ctx, comp, 0, v2b);
++      }
++
++      opsel_hi[0] = 1;
++
++      src0 = bld.pseudo(aco_opcode::p_create_vector, bld.def(v1), comps[0], comps[1]);
++   }
++
++   if (src0.type() == RegType::sgpr && src1.type() == RegType::sgpr)
++      src1 = as_vgpr(ctx, src1);
++
++   bld.vop3p(op, Definition(dst), src0, src1, opsel_lo, opsel_hi);
++   emit_split_vector(ctx, dst, 2);
++}
++
+ void
+ emit_vop1_instruction(isel_context* ctx, nir_alu_instr* instr, aco_opcode op, Temp dst)
+ {
+@@ -1038,7 +1073,7 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
+       } else if (dst.regClass() == v2b) {
+          emit_vop2_instruction(ctx, instr, aco_opcode::v_lshrrev_b16, dst, false, true);
+       } else if (dst.regClass() == v1 && instr->def.bit_size == 16) {
+-         emit_vop3p_instruction(ctx, instr, aco_opcode::v_pk_lshrrev_b16, dst, true);
++         emit_pk_shift(ctx, instr, aco_opcode::v_pk_lshrrev_b16, dst);
+       } else if (dst.regClass() == v1) {
+          emit_vop2_instruction(ctx, instr, aco_opcode::v_lshrrev_b32, dst, false, true);
+       } else if (dst.regClass() == v2 && ctx->program->gfx_level >= GFX8) {
+@@ -1061,7 +1096,7 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
+       } else if (dst.regClass() == v2b) {
+          emit_vop2_instruction(ctx, instr, aco_opcode::v_lshlrev_b16, dst, false, true);
+       } else if (dst.regClass() == v1 && instr->def.bit_size == 16) {
+-         emit_vop3p_instruction(ctx, instr, aco_opcode::v_pk_lshlrev_b16, dst, true);
++         emit_pk_shift(ctx, instr, aco_opcode::v_pk_lshlrev_b16, dst);
+       } else if (dst.regClass() == v1) {
+          emit_vop2_instruction(ctx, instr, aco_opcode::v_lshlrev_b32, dst, false, true, false,
+                                false, 1);
+@@ -1085,7 +1120,7 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
+       } else if (dst.regClass() == v2b) {
+          emit_vop2_instruction(ctx, instr, aco_opcode::v_ashrrev_i16, dst, false, true);
+       } else if (dst.regClass() == v1 && instr->def.bit_size == 16) {
+-         emit_vop3p_instruction(ctx, instr, aco_opcode::v_pk_ashrrev_i16, dst, true);
++         emit_pk_shift(ctx, instr, aco_opcode::v_pk_ashrrev_i16, dst);
+       } else if (dst.regClass() == v1) {
+          emit_vop2_instruction(ctx, instr, aco_opcode::v_ashrrev_i32, dst, false, true);
+       } else if (dst.regClass() == v2 && ctx->program->gfx_level >= GFX8) {
+-- 
+GitLab
+
+
+From 630c3b8b1bbfea4e24106f83d1ef3299ebcfca7d Mon Sep 17 00:00:00 2001
+From: Georg Lehmann <dadschoorse@gmail.com>
+Date: Tue, 1 Jul 2025 11:09:07 +0200
+Subject: [PATCH 2/5] ac/llvm: support vec2 extract
+
+---
+ src/amd/llvm/ac_nir_to_llvm.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/src/amd/llvm/ac_nir_to_llvm.c b/src/amd/llvm/ac_nir_to_llvm.c
+index 0233b672872d1..6322a6408bb19 100644
+--- a/src/amd/llvm/ac_nir_to_llvm.c
++++ b/src/amd/llvm/ac_nir_to_llvm.c
+@@ -1166,9 +1166,14 @@ static bool visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
+    case nir_op_extract_i16: {
+       bool is_signed = instr->op == nir_op_extract_i16 || instr->op == nir_op_extract_i8;
+       unsigned size = instr->op == nir_op_extract_u8 || instr->op == nir_op_extract_i8 ? 8 : 16;
+-      LLVMValueRef offset = LLVMConstInt(LLVMTypeOf(src[0]), nir_src_as_uint(instr->src[1].src) * size, false);
++      LLVMValueRef offset = LLVMBuildMul(ctx->ac.builder, src[1], ac_const_uint_vec(&ctx->ac, LLVMTypeOf(src[1]), size), "");
+       result = LLVMBuildLShr(ctx->ac.builder, src[0], offset, "");
+-      result = LLVMBuildTrunc(ctx->ac.builder, result, LLVMIntTypeInContext(ctx->ac.context, size), "");
++
++      LLVMTypeRef small_type = LLVMIntTypeInContext(ctx->ac.context, size);
++      if (instr->def.num_components > 1)
++         small_type = LLVMVectorType(small_type, instr->def.num_components);
++
++      result = LLVMBuildTrunc(ctx->ac.builder, result, small_type, "");
+       if (is_signed)
+          result = LLVMBuildSExt(ctx->ac.builder, result, LLVMTypeOf(src[0]), "");
+       else
+-- 
+GitLab
+
+
+From 1cca686e6986e2d0a777aeb80d73ae1f52f94a88 Mon Sep 17 00:00:00 2001
+From: Georg Lehmann <dadschoorse@gmail.com>
+Date: Tue, 1 Jul 2025 11:13:11 +0200
+Subject: [PATCH 3/5] ac/nir: lower uniform extract_i8/u8 to 32bit
+
+To prevent vectorizing this later.
+---
+ src/amd/common/nir/ac_nir.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/amd/common/nir/ac_nir.c b/src/amd/common/nir/ac_nir.c
+index 52911038ae05b..cefaccc132e2a 100644
+--- a/src/amd/common/nir/ac_nir.c
++++ b/src/amd/common/nir/ac_nir.c
+@@ -382,6 +382,9 @@ lower_bit_size_callback(const nir_instr *instr, enum amd_gfx_level chip, bool di
+       case nir_op_iadd_sat:
+       case nir_op_isub_sat:
+          return !divergence_known || bit_size == 8 || !alu->def.divergent ? 32 : 0;
++      case nir_op_extract_u8:
++      case nir_op_extract_i8:
++         return !divergence_known || !alu->def.divergent ? 32 : 0;
+ 
+       default:
+          return 0;
+-- 
+GitLab
+
+
+From f0f02d3b5b6fa1f4137f5e0d0eb66e719b8cf6c3 Mon Sep 17 00:00:00 2001
+From: Georg Lehmann <dadschoorse@gmail.com>
+Date: Mon, 7 Jul 2025 13:45:48 +0200
+Subject: [PATCH 4/5] aco: vectorize 16bit extracts
+
+---
+ src/amd/compiler/aco_interface.cpp            |  2 +
+ .../aco_select_nir_alu.cpp                    | 63 +++++++++++++++++++
+ 2 files changed, 65 insertions(+)
+
+diff --git a/src/amd/compiler/aco_interface.cpp b/src/amd/compiler/aco_interface.cpp
+index 3897c5b854025..37fce45641770 100644
+--- a/src/amd/compiler/aco_interface.cpp
++++ b/src/amd/compiler/aco_interface.cpp
+@@ -470,6 +470,8 @@ aco_nir_op_supports_packed_math_16bit(const nir_alu_instr* alu)
+    case nir_op_imax:
+    case nir_op_umin:
+    case nir_op_umax:
++   case nir_op_extract_u8:
++   case nir_op_extract_i8:
+    case nir_op_ishl:
+    case nir_op_ishr:
+    case nir_op_ushr: return true;
+diff --git a/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp b/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
+index 48845052063e2..17a6eae6d715e 100644
+--- a/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
++++ b/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
+@@ -353,6 +353,50 @@ emit_pk_shift(isel_context* ctx, nir_alu_instr* instr, aco_opcode op, Temp dst)
+    emit_split_vector(ctx, dst, 2);
+ }
+ 
++void
++emit_pk_int16_from_8bit(isel_context* ctx, Temp dst, Temp src, unsigned byte0, unsigned byte2,
++                        bool sext)
++{
++   Builder bld(ctx->program, ctx->block);
++   assert(src.type() == RegType::vgpr);
++   assert(src.size() == 1);
++   assert(dst.regClass() == v1);
++
++   if (byte0 == 0 && byte2 == 2 && !sext) {
++      Temp mask = bld.copy(bld.def(s1), Operand::c32(0x00ff00ffu));
++      bld.vop2(aco_opcode::v_and_b32, Definition(dst), mask, src);
++   } else if ((byte0 & 0x1) != 0 && (byte2 & 0x1) != 0) {
++      aco_opcode shift = sext ? aco_opcode::v_pk_ashrrev_i16 : aco_opcode::v_pk_lshrrev_b16;
++      bld.vop3p(shift, Definition(dst), Operand::c32(8), src, byte0 & 0x2, byte2 & 0x2);
++   } else {
++
++      unsigned swizzle[2] = {byte0, byte2};
++      uint32_t pk_select = 0;
++
++      Operand msb = Operand::c32(0);
++
++      for (unsigned i = 0; i < 2; i++) {
++         pk_select |= swizzle[i] << (i * 16);
++         if (!sext) {
++            pk_select |= bperm_0 << (i * 16 + 8);
++         } else if (swizzle[i] & 0x1) {
++            pk_select |= (swizzle[i] & 0x2 ? bperm_b3_sign : bperm_b1_sign) << (i * 16 + 8);
++         } else {
++            if (msb.isConstant()) {
++               msb =
++                  Operand(bld.vop2(aco_opcode::v_lshlrev_b32, bld.def(v1), Operand::c32(8), src));
++            }
++            pk_select |= (swizzle[i] & 0x2 ? bperm_b7_sign : bperm_b5_sign) << (i * 16 + 8);
++         }
++      }
++
++      bld.vop3(aco_opcode::v_perm_b32, Definition(dst), msb, src,
++               bld.copy(bld.def(s1), Operand::c32(pk_select)));
++   }
++
++   emit_split_vector(ctx, dst, 2);
++}
++
+ void
+ emit_vop1_instruction(isel_context* ctx, nir_alu_instr* instr, aco_opcode op, Temp dst)
+ {
+@@ -3428,6 +3472,25 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
+       bool is_signed = instr->op == nir_op_extract_i16 || instr->op == nir_op_extract_i8;
+       unsigned comp = instr->op == nir_op_extract_u8 || instr->op == nir_op_extract_i8 ? 4 : 2;
+       uint32_t bits = comp == 4 ? 8 : 16;
++
++      if (instr->def.num_components == 2) {
++         assert(instr->def.bit_size == 16);
++         assert(instr->src[0].src.ssa->bit_size == 16);
++         assert(bits == 8);
++         assert((instr->src[0].swizzle[0] & ~0x1) == (instr->src[0].swizzle[1] & ~0x1));
++
++         Temp src = as_vgpr(ctx, get_alu_src_vop3p(ctx, instr->src[0]));
++
++         unsigned swizzle[2];
++         for (unsigned i = 0; i < 2; i++) {
++            nir_scalar index = nir_scalar_resolved(instr->src[1].src.ssa, instr->src[1].swizzle[i]);
++            swizzle[i] = instr->src[0].swizzle[i] * 2 + nir_scalar_as_uint(index);
++         }
++
++         emit_pk_int16_from_8bit(ctx, dst, src, swizzle[0], swizzle[1], is_signed);
++         break;
++      }
++
+       unsigned index = nir_src_as_uint(instr->src[1].src);
+       if (bits >= instr->def.bit_size || index * bits >= instr->def.bit_size) {
+          assert(index == 0);
+-- 
+GitLab
+
+
+From c6e48d12c2bbccfa6aab3107241ca75090542a99 Mon Sep 17 00:00:00 2001
+From: Georg Lehmann <dadschoorse@gmail.com>
+Date: Mon, 7 Jul 2025 13:46:11 +0200
+Subject: [PATCH 5/5] aco: vectorize conversions from 8bit to 16bit
+
+Massively helps emulated fp8 performance.
+---
+ src/amd/compiler/aco_interface.cpp            |  2 +
+ .../aco_select_nir_alu.cpp                    | 46 +++++++++++--------
+ 2 files changed, 28 insertions(+), 20 deletions(-)
+
+diff --git a/src/amd/compiler/aco_interface.cpp b/src/amd/compiler/aco_interface.cpp
+index 37fce45641770..8a2700cc3f293 100644
+--- a/src/amd/compiler/aco_interface.cpp
++++ b/src/amd/compiler/aco_interface.cpp
+@@ -475,6 +475,8 @@ aco_nir_op_supports_packed_math_16bit(const nir_alu_instr* alu)
+    case nir_op_ishl:
+    case nir_op_ishr:
+    case nir_op_ushr: return true;
++   case nir_op_u2u16:
++   case nir_op_i2i16: return alu->src[0].src.ssa->bit_size == 8;
+    default: return false;
+    }
+ }
+diff --git a/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp b/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
+index 17a6eae6d715e..074f33e77187b 100644
+--- a/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
++++ b/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
+@@ -2985,33 +2985,39 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
+    }
+    case nir_op_i2i8:
+    case nir_op_i2i16:
+-   case nir_op_i2i32: {
+-      if (dst.type() == RegType::sgpr && instr->src[0].src.ssa->bit_size < 32) {
+-         /* no need to do the extract in get_alu_src() */
+-         sgpr_extract_mode mode = instr->def.bit_size > instr->src[0].src.ssa->bit_size
+-                                     ? sgpr_extract_sext
+-                                     : sgpr_extract_undef;
+-         extract_8_16_bit_sgpr_element(ctx, dst, &instr->src[0], mode);
+-      } else {
+-         const unsigned input_bitsize = instr->src[0].src.ssa->bit_size;
+-         const unsigned output_bitsize = instr->def.bit_size;
+-         convert_int(ctx, bld, get_alu_src(ctx, instr->src[0]), input_bitsize, output_bitsize,
+-                     output_bitsize > input_bitsize, dst);
+-      }
+-      break;
+-   }
++   case nir_op_i2i32:
+    case nir_op_u2u8:
+    case nir_op_u2u16:
+    case nir_op_u2u32: {
++      const unsigned input_bitsize = instr->src[0].src.ssa->bit_size;
++      const unsigned output_bitsize = instr->def.bit_size;
++      bool sext =
++         instr->op == nir_op_i2i8 || instr->op == nir_op_i2i16 || instr->op == nir_op_i2i32;
++      bool trunc = output_bitsize <= input_bitsize;
++
++      if (instr->def.num_components == 2) {
++         assert(output_bitsize == 16);
++         assert(input_bitsize == 8);
++         assert((instr->src[0].swizzle[0] & ~0x3) == (instr->src[0].swizzle[1] & ~0x3));
++
++         Temp src = get_ssa_temp(ctx, instr->src[0].src.ssa);
++         if (src.bytes() >= 4)
++            src = emit_extract_vector(ctx, src, instr->src[0].swizzle[0] & ~0x3, v1);
++
++         emit_pk_int16_from_8bit(ctx, dst, src, instr->src[0].swizzle[0] & 0x3,
++                                 instr->src[0].swizzle[1] & 0x3, sext);
++         break;
++      }
++
+       if (dst.type() == RegType::sgpr && instr->src[0].src.ssa->bit_size < 32) {
+          /* no need to do the extract in get_alu_src() */
+-         sgpr_extract_mode mode = instr->def.bit_size > instr->src[0].src.ssa->bit_size
+-                                     ? sgpr_extract_zext
+-                                     : sgpr_extract_undef;
++         sgpr_extract_mode mode = trunc  ? sgpr_extract_undef
++                                  : sext ? sgpr_extract_sext
++                                         : sgpr_extract_zext;
+          extract_8_16_bit_sgpr_element(ctx, dst, &instr->src[0], mode);
+       } else {
+-         convert_int(ctx, bld, get_alu_src(ctx, instr->src[0]), instr->src[0].src.ssa->bit_size,
+-                     instr->def.bit_size, false, dst);
++         convert_int(ctx, bld, get_alu_src(ctx, instr->src[0]), input_bitsize, output_bitsize,
++                     sext && !trunc, dst);
+       }
+       break;
+    }
+-- 
+GitLab
+
