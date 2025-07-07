@@ -62,7 +62,7 @@ copy_artifacts() {
 	rm -rf "$outdir"
 	mkdir -p "$outdir/"
 
-	cp -f ./extras/{mesa-run.sh,steam-wrapped.sh,steam-wrapped.desktop} "$outdir"/
+	cp -f ./extras/{install.sh,mesa-run.sh,steam-wrapped.sh,steam-wrapped.desktop} "$outdir"/
 	cp -rf "$ARTIFACTDIR"/* "$outdir"/
 	sed -i "s|/opt/mesa/output|$outdir|g" "$outdir"/share/vulkan/icd.d/radeon_icd.x86_64.json
 
