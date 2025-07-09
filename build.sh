@@ -8,6 +8,7 @@ REPODIR="mesa-git"
 PATCHES=(
 	34918 # recommended
 	35269 # raytracing optimization
+	35746
 	35784
 	35854
 	35919
