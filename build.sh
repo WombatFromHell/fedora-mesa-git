@@ -8,10 +8,8 @@ REPODIR="mesa-git"
 PATCHES=(
 	34918 # recommended
 	35269 # raytracing optimization
-	35746
-	35784
-	35854
-	35919
+	# 35854 # pending rebase
+	# 35919 # RDNA3
 )
 
 #
@@ -25,7 +23,7 @@ HACK_REPO=(--branch "$BRANCH_NAME" https://gitlab.freedesktop.org/pixelcluster/m
 HACK_REV="916c15386bdd1e69dc4606bb545be15195e7a6d2"
 #
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-REV="34f1a8f70744efc1c7d66644938ad794d1868cb5" # pin to last known-good (7/7/25)
+REV="95f1f334ca2669c4b3ac87a6ea82e2e342389ba4" # pin to last known-good (7/10/25)
 
 FP8HACK=0
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
@@ -104,8 +102,9 @@ git_patch() {
 		if "${patch_cmd[@]}" "$path"; then
 			echo "Applied: '$patchn'..."
 		elif grep -q 'rebase-apply' <<<"$("${patch_cmd[@]}" "$path" 2>&1)"; then
-			echo "Skipping '${patchn}'..."
+			echo "Aborting on: '${patchn}'..."
 			"$GIT" am --abort 2>/dev/null
+			exit 1
 		else
 			echo "Uncaught Error! Something went wrong applying patch: '${patchn}'..."
 			exit 1
