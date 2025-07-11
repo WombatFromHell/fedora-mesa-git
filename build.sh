@@ -6,32 +6,14 @@ BUILDDIR="output"
 
 REPODIR="mesa-git"
 PATCHES=(
-	34918 # recommended
+	34918 # recommended by Etaash
 	35269 # raytracing optimization
 	# 35854 # pending rebase
 	# 35919 # RDNA3
 )
 
-#
-# REPO STUFF
-#
-# HACK_REPO=(--branch radv-float8-hack3 https://gitlab.freedesktop.org/DadSchoorse/mesa.git)
-# HACK_REV="0db494288e18ff26c94eea8d1261df24f065a1d3"
-#
-BRANCH_NAME="radv-bvh8-dsbvh"
-HACK_REPO=(--branch "$BRANCH_NAME" https://gitlab.freedesktop.org/pixelcluster/mesa.git)
-HACK_REV="916c15386bdd1e69dc4606bb545be15195e7a6d2"
-#
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-REV="95f1f334ca2669c4b3ac87a6ea82e2e342389ba4" # pin to last known-good (7/10/25)
-
-FP8HACK=0
-if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
-	echo "$0 [--fp8hack]"
-	exit 1
-elif [ "$1" == "--fp8hack" ]; then
-	FP8HACK=1
-fi
+REV="e55e63c5a752d9c83e535963ca79781631ac327a" # pin to last known-good (7/11/25)
 
 # prevent script from being run outside the project directory
 script_dir="$(dirname "$(readlink -f "$0")")"
@@ -61,30 +43,21 @@ update_patches() {
 }
 
 git_clone() {
-	if [ "$FP8HACK" -eq 1 ]; then
-		echo "Using '$BRANCH_NAME' fork..."
-		local WREPO=("${HACK_REPO[@]}")
-	else
-		echo "Using mesa upstream..."
-		local WREPO=("${REPO[@]}")
-	fi
-
+	echo "Using mesa upstream..."
+	local WREPO=("${REPO[@]}")
 	if ! [ -d ./"$REPODIR" ]; then
 		"$GIT" clone "${WREPO[@]}" "$REPODIR"
 	fi
 }
 
 git_reset() {
+	local WREV=$REV
+
 	if ! [ -d ./"$REPODIR" ]; then
 		echo "Error: $REPODIR not found!"
 		exit 1
 	fi
 
-	if [ "$FP8HACK" -eq 1 ]; then
-		local WREV=$HACK_REV
-	else
-		local WREV=$REV
-	fi
 	cd "$script_dir/$REPODIR" || exit 1
 	# always reset repo to pinned revision
 	"$GIT" fetch
