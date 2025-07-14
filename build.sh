@@ -10,6 +10,7 @@ PATCHES=(
 	35269 # raytracing optimization
 	# 35854 # pending rebase
 	# 35919 # RDNA3
+	34242 # AL2 support
 )
 
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)

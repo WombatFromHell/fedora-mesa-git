@@ -12,6 +12,7 @@ COMMON_FLAGS=()
 MESON_OPTS=(
 	setup build64/ --reconfigure --libdir lib64 -Dprefix="$OUTDIR"
 	-Dgallium-drivers=radeonsi -Dvideo-codecs=all -Dvulkan-drivers=amd -Dbuildtype=release
+	-Dvulkan-layers=anti-lag
 )
 [[ ${#COMMON_FLAGS[@]} -gt 0 ]] &&
 	MESON_OPTS+=("-Dc_args=${COMMON_FLAGS[*]}" "-Dcpp_args=${COMMON_FLAGS[*]}")

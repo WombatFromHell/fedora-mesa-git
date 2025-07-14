@@ -65,6 +65,8 @@ copy_artifacts() {
 	cp -f ./extras/{install.sh,mesa-run.sh,steam-wrapped.sh,steam-wrapped.desktop} "$outdir"/
 	cp -rf "$ARTIFACTDIR"/* "$outdir"/
 	sed -i "s|/opt/mesa/output|$outdir|g" "$outdir"/share/vulkan/icd.d/radeon_icd.x86_64.json
+	local vk_al2lib="libVkLayer_MESA_anti_lag.so"
+	sed -i "s|$vk_al2lib|$outdir/lib64/$vk_al2lib|g" "$outdir"/share/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
 
 	sudo ln -sf "$outdir"/mesa-run.sh /usr/local/bin/mesa-run.sh
 	sudo ln -sf "$outdir"/steam-wrapped.sh /usr/local/bin/steam-wrapped.sh
