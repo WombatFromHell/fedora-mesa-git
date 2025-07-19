@@ -12,7 +12,8 @@ PATCHES=(
 )
 
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-REV="3dc28c9e55aba21b93ce6078a5ca25c6db73f62a" # pin to last known-good (7/16/25)
+REV="d59c22b6e1a8dae1c41ec7a229185e49d552d6f4" # pin to last known-good (7/19/25)
+# REV="3dc28c9e55aba21b93ce6078a5ca25c6db73f62a" # pin to last known-good (7/16/25)
 
 # prevent script from being run outside the project directory
 script_dir="$(dirname "$(readlink -f "$0")")"
