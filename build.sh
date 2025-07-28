@@ -6,12 +6,12 @@ BUILDDIR="output"
 
 REPODIR="mesa-git"
 PATCHES=(
-  34918 # recommended by Etaash
-  # 35919 # RDNA3
+  # 34918 # winewayland fix
 )
 
 REPO=(https://gitlab.freedesktop.org/mesa/mesa.git)
-REV="845961ab77ad892f6bd15ed74f856b9dfd3a30eb" # pin to last known-good (7/25/25)
+REV="HEAD" # pin to bleeding-edge 'main'
+# REV="845961ab77ad892f6bd15ed74f856b9dfd3a30eb" # pin to last known-good (7/25/25)
 
 # prevent script from being run outside the project directory
 script_dir="$(dirname "$(readlink -f "$0")")"
