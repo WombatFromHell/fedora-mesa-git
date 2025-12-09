@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+MESA_PREFIX="$script_dir"
 
-MESA_PREFIX="$(realpath "$script_dir")"
 LIBDIR="$MESA_PREFIX/lib64"
 JSON_DIRS=(
   "$MESA_PREFIX/share/vulkan/icd.d"
